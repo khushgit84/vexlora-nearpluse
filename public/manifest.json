@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "VEXLORA NearPulse",
+  "short_name": "NearPulse",
+  "description": "Stay Connected. Even Without Internet. Native Android BLE offline-first safety and peer-to-peer communication app.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070A0F",
+  "theme_color": "#00F0FF",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["utilities", "communication", "lifestyle"]
+}

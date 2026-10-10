@@ -24,7 +24,7 @@ abstract class NearPulseDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     NearPulseDatabase::class.java,
-                    "vexlora_nearpulse.db"
+                    "nearpulse_db"
                 ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance

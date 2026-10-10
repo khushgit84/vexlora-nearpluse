@@ -4,69 +4,41 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
+import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @SuppressLint("MissingPermission")
 class BleManager(private val context: Context) {
-
-    companion object {
-        private const val TAG = "NearPulseBleManager"
-    }
+    private val tag = "BleManager"
 
     private val bluetoothManager: BluetoothManager? =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager?.adapter
+    val bluetoothAdapter: BluetoothAdapter? get() = bluetoothManager?.adapter
     private var bleScanner: BluetoothLeScanner? = null
     private var bleAdvertiser: BluetoothLeAdvertiser? = null
 
+    val isScanning = MutableStateFlow(false)
+    val isAdvertising = MutableStateFlow(false)
+    val discoveredPeers = MutableStateFlow<Map<String, DiscoveredPeer>>(emptyMap())
+    val activeConnectionPeer = MutableStateFlow<DiscoveredPeer?>(null)
+    val incomingMessages = MutableSharedFlow<BleMessage>(extraBufferCapacity = 64)
+    val messageAckEvents = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val activeSosAlert = MutableStateFlow<SosAlert?>(null)
+    val isSosBroadcasting = MutableStateFlow(false)
+    private val resolvedSosAddresses = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    private var gattServer: BluetoothGattServer? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // UI States
-    private val _isScanning = MutableStateFlow(false)
-    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
-
-    private val _isAdvertising = MutableStateFlow(false)
-    val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
-
-    private val _discoveredPeers = MutableStateFlow<Map<String, DiscoveredPeer>>(emptyMap())
-    val discoveredPeers: StateFlow<Map<String, DiscoveredPeer>> = _discoveredPeers.asStateFlow()
-
-    private val _activeConnectionPeer = MutableStateFlow<DiscoveredPeer?>(null)
-    val activeConnectionPeer: StateFlow<DiscoveredPeer?> = _activeConnectionPeer.asStateFlow()
-
-    private val _incomingMessages = MutableSharedFlow<BleMessage>(extraBufferCapacity = 64)
-    val incomingMessages: SharedFlow<BleMessage> = _incomingMessages.asSharedFlow()
-
-    private val _messageAckEvents = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val messageAckEvents: SharedFlow<String> = _messageAckEvents.asSharedFlow()
-
-    private val _activeSosAlert = MutableStateFlow<SosAlert?>(null)
-    val activeSosAlert: StateFlow<SosAlert?> = _activeSosAlert.asStateFlow()
-
-    private val _isSosBroadcasting = MutableStateFlow(false)
-    val isSosBroadcasting: StateFlow<Boolean> = _isSosBroadcasting.asStateFlow()
-
-    // GATT Server and Client references
-    private var gattServer: BluetoothGattServer? = null
-    private var activeGattClient: BluetoothGatt? = null
-    private val connectedServerDevices = ConcurrentHashMap.newKeySet<BluetoothDevice>()
-
-    // Local configuration
     var localPseudonym: String = "NP-" + UUID.randomUUID().toString().take(4).uppercase()
-    var currentCircleCode: String? = null
+    var currentCircleCode: String = "GENERAL"
 
-    // Check hardware support
     fun isBleSupported(): Boolean = bluetoothAdapter != null
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
     fun isAdvertisingSupported(): Boolean = bluetoothAdapter?.isMultipleAdvertisementSupported == true
@@ -75,85 +47,480 @@ class BleManager(private val context: Context) {
         setupGattServer()
     }
 
-    // -------------------------------------------------------------
-    // GATT SERVER (Acts as Peripheral to accept incoming connections)
-    // -------------------------------------------------------------
-    private fun setupGattServer() {
+    fun setupGattServer() {
         if (bluetoothManager == null || bluetoothAdapter?.isEnabled != true) return
-
         try {
+            gattServer?.close()
             gattServer = bluetoothManager.openGattServer(context, gattServerCallback)
-            val service = BluetoothGattService(
-                BleConstants.SERVICE_UUID,
-                BluetoothGattService.SERVICE_TYPE_PRIMARY
-            )
+            val service = BluetoothGattService(BleConstants.SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
 
-            // Characteristic for writing messages
             val messageChar = BluetoothGattCharacteristic(
                 BleConstants.CHAR_MESSAGE_UUID,
                 BluetoothGattCharacteristic.PROPERTY_WRITE or
                         BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or
-                        BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-                BluetoothGattCharacteristic.PERMISSION_WRITE or
-                        BluetoothGattCharacteristic.PERMISSION_READ
+                        BluetoothGattCharacteristic.PROPERTY_NOTIFY or
+                        BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_WRITE or BluetoothGattCharacteristic.PERMISSION_READ
             )
-            val msgCccd = BluetoothGattDescriptor(
-                BleConstants.CCCD_UUID,
-                BluetoothGattDescriptor.PERMISSION_WRITE or BluetoothGattDescriptor.PERMISSION_READ
-            )
-            messageChar.addDescriptor(msgCccd)
+            messageChar.addDescriptor(BluetoothGattDescriptor(BleConstants.CCCD_UUID, BluetoothGattDescriptor.PERMISSION_WRITE or BluetoothGattDescriptor.PERMISSION_READ))
 
-            // Characteristic for ACKs
             val ackChar = BluetoothGattCharacteristic(
                 BleConstants.CHAR_ACK_UUID,
                 BluetoothGattCharacteristic.PROPERTY_WRITE or
-                        BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-                BluetoothGattCharacteristic.PERMISSION_WRITE
+                        BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or
+                        BluetoothGattCharacteristic.PROPERTY_NOTIFY or
+                        BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_WRITE or BluetoothGattCharacteristic.PERMISSION_READ
             )
+            ackChar.addDescriptor(BluetoothGattDescriptor(BleConstants.CCCD_UUID, BluetoothGattDescriptor.PERMISSION_WRITE or BluetoothGattDescriptor.PERMISSION_READ))
 
-            // Characteristic for SOS alerts
             val sosChar = BluetoothGattCharacteristic(
                 BleConstants.CHAR_SOS_UUID,
                 BluetoothGattCharacteristic.PROPERTY_WRITE or
                         BluetoothGattCharacteristic.PROPERTY_NOTIFY or
                         BluetoothGattCharacteristic.PROPERTY_READ,
-                BluetoothGattCharacteristic.PERMISSION_WRITE or
-                        BluetoothGattCharacteristic.PERMISSION_READ
+                BluetoothGattCharacteristic.PERMISSION_WRITE or BluetoothGattCharacteristic.PERMISSION_READ
             )
-
-            // Characteristic for Peer Info
-            val infoChar = BluetoothGattCharacteristic(
-                BleConstants.CHAR_INFO_UUID,
-                BluetoothGattCharacteristic.PROPERTY_READ,
-                BluetoothGattCharacteristic.PERMISSION_READ
-            )
+            sosChar.addDescriptor(BluetoothGattDescriptor(BleConstants.CCCD_UUID, BluetoothGattDescriptor.PERMISSION_WRITE or BluetoothGattDescriptor.PERMISSION_READ))
 
             service.addCharacteristic(messageChar)
             service.addCharacteristic(ackChar)
             service.addCharacteristic(sosChar)
-            service.addCharacteristic(infoChar)
 
             gattServer?.addService(service)
-            Log.d(TAG, "GATT Server configured and service added.")
+            Log.d(tag, "GATT Server configured successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to setup GATT Server: ${e.message}")
+            Log.e(tag, "GATT Server error: ${e.message}")
+        }
+    }
+
+    fun startAdvertising(isSos: Boolean = false, sosDetails: String = "") {
+        if (!isBluetoothEnabled()) {
+            Log.w(tag, "Cannot advertise: Bluetooth disabled")
+            return
+        }
+        bleAdvertiser = bluetoothAdapter?.bluetoothLeAdvertiser
+        if (bleAdvertiser == null) {
+            Log.w(tag, "Device does not support BLE Peripheral advertising")
+            return
+        }
+
+        try {
+            stopAdvertising()
+
+            val settings = AdvertiseSettings.Builder()
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .setConnectable(true)
+                .setTimeout(0)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+                .build()
+
+            // 1. Primary Advertisement Packet (Guaranteed <= 31 bytes)
+            // 128-bit Service UUID is 16 bytes + 2 header bytes = 18 bytes
+            val advertiseData = AdvertiseData.Builder()
+                .setIncludeDeviceName(false)
+                .setIncludeTxPowerLevel(false)
+                .addServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
+                .build()
+
+            // 2. Scan Response Packet (Separate 31 bytes)
+            // Custom Vexlora Metadata: PREFIX:CALLSIGN
+            val prefix = if (isSos) "SOS" else "NP"
+            val metaStr = "$prefix:$localPseudonym"
+            val metaBytes = metaStr.toByteArray(StandardCharsets.UTF_8).take(12).toByteArray()
+
+            val scanResponseData = AdvertiseData.Builder()
+                .setIncludeDeviceName(false) // MUST be false: "OnePlus Nord 3 5G" is 19 bytes and exceeds 31-byte limit!
+                .addManufacturerData(0xFFFF, metaBytes)
+                .build()
+
+            bleAdvertiser?.startAdvertising(settings, advertiseData, scanResponseData, advertiseCallback)
+            isSosBroadcasting.value = isSos
+            if (isSos) {
+                EmergencyAlertManager.triggerLocalSosBroadcastFeedback(context)
+            }
+            Log.d(tag, "BLE startAdvertising triggered for $metaStr, isSos=$isSos")
+        } catch (e: Exception) {
+            Log.e(tag, "Error starting advertising: ${e.message}", e)
+        }
+    }
+
+    fun stopAdvertising() {
+        try {
+            bleAdvertiser?.stopAdvertising(advertiseCallback)
+        } catch (e: Exception) {
+            Log.w(tag, "Error stopping advertising: ${e.message}")
+        }
+        isAdvertising.value = false
+        isSosBroadcasting.value = false
+        EmergencyAlertManager.dismissSosNotification(context)
+    }
+
+    fun startDiscovery() {
+        if (!isBluetoothEnabled()) {
+            Log.w(tag, "Cannot scan: Bluetooth disabled")
+            return
+        }
+        bleScanner = bluetoothAdapter?.bluetoothLeScanner
+        if (bleScanner == null) {
+            Log.w(tag, "BluetoothLeScanner unavailable")
+            return
+        }
+
+        try {
+            stopDiscovery()
+
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0)
+                .build()
+
+            // Start unfiltered scan so that all nearby BLE devices and NearPulse nodes appear
+            bleScanner?.startScan(null, settings, scanCallback)
+            isScanning.value = true
+            Log.d(tag, "Started unrestricted BLE discovery")
+        } catch (e: Exception) {
+            Log.e(tag, "Error starting unfiltered scan: ${e.message}, falling back to filtered scan", e)
+            try {
+                val filters = listOf(
+                    ScanFilter.Builder().setServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID)).build()
+                )
+                val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+                bleScanner?.startScan(filters, settings, scanCallback)
+                isScanning.value = true
+            } catch (e2: Exception) {
+                Log.e(tag, "Fallback scan failed: ${e2.message}", e2)
+            }
+        }
+    }
+
+    fun stopDiscovery() {
+        try {
+            bleScanner?.stopScan(scanCallback)
+        } catch (e: Exception) {
+            Log.w(tag, "Error stopping discovery: ${e.message}")
+        }
+        isScanning.value = false
+    }
+
+    fun sendMessage(targetAddress: String, text: String, messageId: String = UUID.randomUUID().toString().take(8)): BleMessage {
+        val message = BleMessage(
+            id = messageId,
+            peerAddress = targetAddress,
+            senderPseudonym = localPseudonym,
+            text = text,
+            timestamp = System.currentTimeMillis(),
+            isOutgoing = true,
+            isDelivered = false
+        )
+
+        coroutineScope.launch {
+            val packet = BlePacket(
+                packetType = BleConstants.PACKET_TYPE_MSG,
+                messageId = messageId,
+                senderPseudonym = localPseudonym,
+                payload = text
+            )
+            writePacketToPeer(targetAddress, packet)
+        }
+
+        return message
+    }
+
+    fun sendSosMutualAck(sosAlert: SosAlert) {
+        coroutineScope.launch {
+            val packet = BlePacket(
+                packetType = BleConstants.PACKET_TYPE_SOS_ACK,
+                messageId = sosAlert.id,
+                senderPseudonym = localPseudonym,
+                payload = "HELP_DISPATCHED_FROM_$localPseudonym"
+            )
+            writePacketToPeer(sosAlert.senderAddress, packet)
+        }
+    }
+
+    fun dismissSosAlert() {
+        val current = activeSosAlert.value
+        if (current != null) {
+            resolvedSosAddresses.add(current.senderAddress)
+        }
+        activeSosAlert.value = null
+        EmergencyAlertManager.dismissSosNotification(context)
+    }
+
+    private fun writePacketToPeer(targetAddress: String, packet: BlePacket) {
+        val device = bluetoothAdapter?.getRemoteDevice(targetAddress) ?: return
+        val packetBytes = packet.toByteArray()
+
+        val callback = object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                Log.d(tag, "GATT link to ${device.address}: status=$status, newState=$newState")
+                if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
+                    gatt.requestMtu(BleConstants.REQUESTED_MTU)
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    gatt.close()
+                }
+            }
+
+            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+                gatt.discoverServices()
+            }
+
+            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    val service = gatt.getService(BleConstants.SERVICE_UUID)
+                    val characteristicUuid = when (packet.packetType) {
+                        BleConstants.PACKET_TYPE_ACK, BleConstants.PACKET_TYPE_SOS_ACK -> BleConstants.CHAR_ACK_UUID
+                        BleConstants.PACKET_TYPE_SOS -> BleConstants.CHAR_SOS_UUID
+                        else -> BleConstants.CHAR_MESSAGE_UUID
+                    }
+
+                    val char = service?.getCharacteristic(characteristicUuid)
+                    if (char != null) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            gatt.writeCharacteristic(char, packetBytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            char.value = packetBytes
+                            @Suppress("DEPRECATION")
+                            char.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                            @Suppress("DEPRECATION")
+                            gatt.writeCharacteristic(char)
+                        }
+                    }
+                }
+            }
+
+            override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.d(tag, "Packet delivered to $targetAddress: ${packet.messageId}")
+                    if (packet.packetType == BleConstants.PACKET_TYPE_MSG) {
+                        coroutineScope.launch {
+                            messageAckEvents.emit(packet.messageId)
+                        }
+                    }
+                }
+                gatt.disconnect()
+            }
+        }
+
+        // Modern TRANSPORT_LE connection on Android 6+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        } else {
+            device.connectGatt(context, false, callback)
+        }
+    }
+
+    private fun isPhoneDevice(
+        device: BluetoothDevice,
+        devName: String,
+        isNearPulse: Boolean
+    ): Boolean {
+        val lower = devName.lowercase()
+
+        // 1. Reject non-phone Bluetooth peripherals FIRST (TVs, media boxes, set-top boxes, speakers, earphones, smart watches, wearables)
+        val nonPhoneKeywords = listOf(
+            "tv", "stb", "box", "soundbar", "speaker", "audio", "echo", "alexa",
+            "buds", "airpods", "headphone", "earphone", "headset", "tws", "wireless stereo", "neckband",
+            "watch", "band", "fit", "tracker", "amazfit", "garmin",
+            "beacon", "tag", "sensor", "bulb", "light", "plug", "dongle", "printer", "remote",
+            "cast", "roku", "jio", "firestick", "bravia", "webos"
+        )
+        for (kw in nonPhoneKeywords) {
+            if (lower.contains(kw)) {
+                return false
+            }
+        }
+
+        // 2. If running VEXLORA NearPulse protocol, it is an active phone mesh node
+        if (isNearPulse) return true
+
+        // 3. Reject unnamed BLE devices (beacons, smart plugs, light bulbs, random RF noise)
+        if (devName.isBlank()) return false
+
+        // 4. Check BluetoothClass if available
+        try {
+            val btClass = device.bluetoothClass
+            if (btClass != null) {
+                val major = btClass.majorDeviceClass
+                if (major == android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO ||
+                    major == android.bluetooth.BluetoothClass.Device.Major.WEARABLE ||
+                    major == android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL ||
+                    major == android.bluetooth.BluetoothClass.Device.Major.IMAGING ||
+                    major == android.bluetooth.BluetoothClass.Device.Major.TOY ||
+                    major == android.bluetooth.BluetoothClass.Device.Major.HEALTH) {
+                    return false
+                }
+                if (major == android.bluetooth.BluetoothClass.Device.Major.PHONE) {
+                    return true
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 5. Whitelist known smartphone brands and patterns
+        val phoneKeywords = listOf(
+            "phone", "mobile", "redmi", "xiaomi", "oneplus", "nord", "iphone",
+            "galaxy", "pixel", "realme", "oppo", "vivo", "motorola", "moto",
+            "nothing", "poco", "iqoo", "honor", "huawei", "infinix", "tecno",
+            "nokia", "xperia", "asus", "rog"
+        )
+        for (kw in phoneKeywords) {
+            if (lower.contains(kw)) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val device = result.device ?: return
+            val address = device.address ?: return
+            val scanRecord = result.scanRecord
+            val rssi = result.rssi
+
+            val serviceUuids = scanRecord?.serviceUuids?.map { it.uuid } ?: emptyList()
+            val isNearPulseService = serviceUuids.contains(BleConstants.SERVICE_UUID)
+            val manufacturerData = scanRecord?.getManufacturerSpecificData(0xFFFF)
+
+            var pseudonym = ""
+            var isSos = false
+            var isNearPulse = isNearPulseService
+
+            if (manufacturerData != null && manufacturerData.isNotEmpty()) {
+                val metaStr = try { String(manufacturerData, StandardCharsets.UTF_8) } catch (_: Exception) { "" }
+                if (metaStr.startsWith("NP:") || metaStr.startsWith("SOS:")) {
+                    isNearPulse = true
+                    val parts = metaStr.split(":")
+                    if (parts.isNotEmpty()) {
+                        isSos = parts[0] == "SOS"
+                        if (parts.size >= 2) {
+                            pseudonym = parts[1]
+                        }
+                    }
+                }
+            }
+
+            val devName = try {
+                scanRecord?.deviceName ?: device.name ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+
+            if (devName.startsWith("NP-", ignoreCase = true) || devName.startsWith("SOS-", ignoreCase = true)) {
+                isNearPulse = true
+                if (pseudonym.isEmpty()) {
+                    pseudonym = devName
+                }
+                if (devName.startsWith("SOS-", ignoreCase = true)) {
+                    isSos = true
+                }
+            }
+
+            // FILTER: Show ONLY nearby phones, ignore all TVs, STBs, and non-phone Bluetooth devices!
+            if (!isPhoneDevice(device, devName, isNearPulse)) {
+                return
+            }
+
+            // Assign clear pseudonym: either custom callsign, real phone name, or readable callsign
+            if (pseudonym.isEmpty()) {
+                pseudonym = devName
+            }
+
+            Log.d(tag, "Discovered Phone: $address, name='$devName', rssi=$rssi, isNearPulse=$isNearPulse, pseudo=$pseudonym")
+
+            val currentMap = discoveredPeers.value.toMutableMap()
+            val peer = DiscoveredPeer(
+                address = address,
+                pseudonym = pseudonym,
+                rssi = rssi,
+                signalCategory = SignalCategory.fromRssi(rssi),
+                lastSeenTimestamp = System.currentTimeMillis(),
+                isSosActive = isSos,
+                circleCode = if (isNearPulse) currentCircleCode else null
+            )
+            currentMap[address] = peer
+            discoveredPeers.value = currentMap
+
+            if (isSos) {
+                if (!resolvedSosAddresses.contains(address)) {
+                    val alert = SosAlert(
+                        id = "SOS-${address.takeLast(4)}",
+                        senderAddress = address,
+                        senderPseudonym = pseudonym,
+                        message = "DISTRESS SIGNAL DETECTED NEARBY! RSSI: $rssi dBm",
+                        timestamp = System.currentTimeMillis(),
+                        rssi = rssi
+                    )
+                    val prev = activeSosAlert.value
+                    if (prev == null || prev.senderAddress != address) {
+                        activeSosAlert.value = alert
+                        EmergencyAlertManager.triggerSosAlarm(context, alert)
+                    }
+                }
+            }
+        }
+
+        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+            results?.forEach { onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, it) }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            Log.e(tag, "BLE Scan Failed: error $errorCode")
+            isScanning.value = false
+        }
+    }
+
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            Log.d(tag, "BLE Broadcast Active and transmitting")
+            isAdvertising.value = true
+        }
+
+        override fun onStartFailure(errorCode: Int) {
+            Log.e(tag, "BLE Broadcast Failed: error $errorCode")
+            if (errorCode == ADVERTISE_FAILED_DATA_TOO_LARGE) {
+                try {
+                    val minimalData = AdvertiseData.Builder()
+                        .setIncludeDeviceName(false)
+                        .setIncludeTxPowerLevel(false)
+                        .addServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
+                        .build()
+                    val settings = AdvertiseSettings.Builder()
+                        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                        .setConnectable(true)
+                        .build()
+                    bleAdvertiser?.startAdvertising(settings, minimalData, object : AdvertiseCallback() {
+                        override fun onStartSuccess(s: AdvertiseSettings?) {
+                            Log.d(tag, "Minimal fallback BLE Broadcast active")
+                            isAdvertising.value = true
+                        }
+                        override fun onStartFailure(err: Int) {
+                            Log.e(tag, "Minimal fallback also failed: $err")
+                            isAdvertising.value = false
+                        }
+                    })
+                    return
+                } catch (e: Exception) {
+                    Log.e(tag, "Fallback error: ${e.message}")
+                }
+            }
+            isAdvertising.value = false
         }
     }
 
     private val gattServerCallback = object : BluetoothGattServerCallback() {
-        override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
-            Log.d(TAG, "Server connection state changed: ${device.address} -> $newState")
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                connectedServerDevices.add(device)
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                connectedServerDevices.remove(device)
-            }
+        override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
+            super.onConnectionStateChange(device, status, newState)
+            Log.d(tag, "GATT Server incoming connection from ${device?.address}, state: $newState")
         }
 
         override fun onCharacteristicWriteRequest(
-            device: BluetoothDevice,
+            device: BluetoothDevice?,
             requestId: Int,
-            characteristic: BluetoothGattCharacteristic,
+            characteristic: BluetoothGattCharacteristic?,
             preparedWrite: Boolean,
             responseNeeded: Boolean,
             offset: Int,
@@ -163,380 +530,68 @@ class BleManager(private val context: Context) {
                 gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
             }
 
-            value?.let { data ->
-                val packet = BlePacket.parse(data)
-                if (packet != null) {
-                    when (packet.packetType) {
-                        BleConstants.PACKET_TYPE_MSG -> {
-                            handleIncomingMessage(device.address, packet)
-                            // Send delivery acknowledgment back immediately
-                            sendAckToDevice(device, packet.messageId)
+            val data = value ?: return
+            val senderAddr = device?.address ?: "UNKNOWN"
+            val parsedPacket = BlePacket.parse(data)
+
+            if (parsedPacket != null) {
+                when (parsedPacket.packetType) {
+                    BleConstants.PACKET_TYPE_MSG -> {
+                        val msg = BleMessage(
+                            id = parsedPacket.messageId,
+                            peerAddress = senderAddr,
+                            senderPseudonym = parsedPacket.senderPseudonym,
+                            text = parsedPacket.payload,
+                            timestamp = System.currentTimeMillis(),
+                            isOutgoing = false,
+                            isDelivered = true
+                        )
+                        coroutineScope.launch {
+                            incomingMessages.emit(msg)
+                            // Post rich notification outside the app
+                            EmergencyAlertManager.postIncomingMessageNotification(context, msg)
+
+                            val ackPacket = BlePacket(
+                                packetType = BleConstants.PACKET_TYPE_ACK,
+                                messageId = parsedPacket.messageId,
+                                senderPseudonym = localPseudonym,
+                                payload = "ACK"
+                            )
+                            writePacketToPeer(senderAddr, ackPacket)
                         }
-                        BleConstants.PACKET_TYPE_ACK -> {
-                            handleIncomingAck(packet.messageId)
+                    }
+                    BleConstants.PACKET_TYPE_ACK -> {
+                        coroutineScope.launch {
+                            messageAckEvents.emit(parsedPacket.messageId)
                         }
-                        BleConstants.PACKET_TYPE_SOS -> {
-                            handleIncomingSos(device.address, packet)
-                        }
-                        BleConstants.PACKET_TYPE_SOS_ACK -> {
-                            Log.d(TAG, "Peer acknowledged SOS: ${packet.senderPseudonym}")
-                        }
+                    }
+                    BleConstants.PACKET_TYPE_SOS -> {
+                        val alert = SosAlert(
+                            id = parsedPacket.messageId,
+                            senderAddress = senderAddr,
+                            senderPseudonym = parsedPacket.senderPseudonym,
+                            message = parsedPacket.payload,
+                            timestamp = System.currentTimeMillis()
+                        )
+                        activeSosAlert.value = alert
+                        EmergencyAlertManager.triggerSosAlarm(context, alert)
+                    }
+                    BleConstants.PACKET_TYPE_SOS_ACK -> {
+                        Log.d(tag, "Mutual SOS Rescue ACK received from ${parsedPacket.senderPseudonym}")
                     }
                 }
             }
         }
-
-        override fun onCharacteristicReadRequest(
-            device: BluetoothDevice,
-            requestId: Int,
-            offset: Int,
-            characteristic: BluetoothGattCharacteristic
-        ) {
-            val responseValue = when (characteristic.uuid) {
-                BleConstants.CHAR_INFO_UUID -> {
-                    "${localPseudonym}|${currentCircleCode ?: "NONE"}".toByteArray(StandardCharsets.UTF_8)
-                }
-                BleConstants.CHAR_SOS_UUID -> {
-                    if (_isSosBroadcasting.value) "ACTIVE_SOS".toByteArray() else "CLEAR".toByteArray()
-                }
-                else -> byteArrayOf()
-            }
-            gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseValue)
-        }
     }
 
-    // -------------------------------------------------------------
-    // ADVERTISING (Broadcast Presence & SOS)
-    // -------------------------------------------------------------
-    fun startAdvertising(isSos: Boolean = false, sosDetails: String = "") {
-        if (!isBluetoothEnabled() || !isAdvertisingSupported()) {
-            Log.w(TAG, "Bluetooth not enabled or advertising not supported")
-            return
-        }
-
-        bleAdvertiser = bluetoothAdapter?.bluetoothLeAdvertiser
-        if (bleAdvertiser == null) return
-
-        stopAdvertising()
-
-        val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-            .setConnectable(true)
-            .setTimeout(0)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-            .build()
-
-        // Service Data contains flags: [0] = SOS flag (0x01 if active), [1..] = short pseudonym
-        val prefix = if (isSos) "SOS" else "NP"
-        val payloadStr = "$prefix:$localPseudonym"
-        val serviceDataBytes = payloadStr.toByteArray(StandardCharsets.UTF_8).take(10).toByteArray()
-
-        val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(false)
-            .setIncludeTxPowerLevel(false)
-            .addServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
-            .addServiceData(ParcelUuid(BleConstants.SERVICE_UUID), serviceDataBytes)
-            .build()
-
-        bleAdvertiser?.startAdvertising(settings, data, advertiseCallback)
-        _isAdvertising.value = true
-        _isSosBroadcasting.value = isSos
-    }
-
-    fun stopAdvertising() {
-        try {
-            bleAdvertiser?.stopAdvertising(advertiseCallback)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping advertiser: ${e.message}")
-        }
-        _isAdvertising.value = false
-        _isSosBroadcasting.value = false
-    }
-
-    private val advertiseCallback = object : AdvertiseCallback() {
-        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-            Log.d(TAG, "BLE Advertising started successfully.")
-        }
-
-        override fun onStartFailure(errorCode: Int) {
-            Log.e(TAG, "BLE Advertising failed with error code: $errorCode")
-            _isAdvertising.value = false
-            _isSosBroadcasting.value = false
-        }
-    }
-
-    // -------------------------------------------------------------
-    // SCANNING (Radar Discovery)
-    // -------------------------------------------------------------
-    fun startDiscovery() {
-        if (!isBluetoothEnabled()) return
-        bleScanner = bluetoothAdapter?.bluetoothLeScanner
-        if (bleScanner == null) return
-
-        stopDiscovery()
-
-        val scanFilter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
-            .build()
-
-        val scanSettings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .setReportDelay(0)
-            .build()
-
-        bleScanner?.startScan(listOf(scanFilter), scanSettings, scanCallback)
-        _isScanning.value = true
-        Log.d(TAG, "BLE Scanning started for NearPulse peers.")
-    }
-
-    fun stopDiscovery() {
-        try {
-            bleScanner?.stopScan(scanCallback)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping scanner: ${e.message}")
-        }
-        _isScanning.value = false
-    }
-
-    private val scanCallback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val device = result.device ?: return
-            val scanRecord = result.scanRecord ?: return
-
-            // Parse service data
-            val serviceData = scanRecord.getServiceData(ParcelUuid(BleConstants.SERVICE_UUID))
-            var pseudonym = "Peer-" + device.address.takeLast(4).replace(":", "")
-            var isSos = false
-
-            if (serviceData != null && serviceData.isNotEmpty()) {
-                val dataStr = String(serviceData, StandardCharsets.UTF_8)
-                val parts = dataStr.split(":")
-                if (parts.size >= 2) {
-                    isSos = parts[0] == "SOS"
-                    pseudonym = parts[1]
-                }
-            }
-
-            val rssi = result.rssi
-            val currentMap = _discoveredPeers.value.toMutableMap()
-            val existing = currentMap[device.address]
-
-            val updatedPeer = DiscoveredPeer(
-                address = device.address,
-                pseudonym = pseudonym,
-                rssi = rssi,
-                signalCategory = SignalCategory.fromRssi(rssi),
-                lastSeenTimestamp = System.currentTimeMillis(),
-                isSosActive = isSos,
-                connectionStatus = existing?.connectionStatus ?: ConnectionStatus.DISCONNECTED
-            )
-
-            currentMap[device.address] = updatedPeer
-            _discoveredPeers.value = currentMap
-
-            // If SOS is broadcasted by peer, register emergency alert
-            if (isSos) {
-                _activeSosAlert.value = SosAlert(
-                    alertId = UUID.randomUUID().toString(),
-                    broadcasterAddress = device.address,
-                    broadcasterPseudonym = pseudonym,
-                    timestamp = System.currentTimeMillis(),
-                    details = "Emergency beacon detected within Bluetooth range"
-                )
-            }
-        }
-
-        override fun onScanFailed(errorCode: Int) {
-            Log.e(TAG, "Scan failed with error code: $errorCode")
-            _isScanning.value = false
-        }
-    }
-
-    // -------------------------------------------------------------
-    // GATT CLIENT (Connect to peer to send messages/SOS ACK)
-    // -------------------------------------------------------------
-    fun connectToPeer(peerAddress: String) {
-        val bluetoothAdapter = this.bluetoothAdapter ?: return
-        val device = bluetoothAdapter.getRemoteDevice(peerAddress) ?: return
-
-        disconnectActiveGatt()
-
-        updatePeerConnectionStatus(peerAddress, ConnectionStatus.CONNECTING)
-        activeGattClient = device.connectGatt(context, false, gattClientCallback, BluetoothDevice.TRANSPORT_LE)
-    }
-
-    fun disconnectActiveGatt() {
-        activeGattClient?.let { gatt ->
-            try {
-                gatt.disconnect()
-                gatt.close()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error closing GATT client: ${e.message}")
-            }
-        }
-        activeGattClient = null
-        _activeConnectionPeer.value?.let { peer ->
-            updatePeerConnectionStatus(peer.address, ConnectionStatus.DISCONNECTED)
-        }
-        _activeConnectionPeer.value = null
-    }
-
-    private val gattClientCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            val address = gatt.device.address
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.d(TAG, "Connected to GATT server on $address. Discovering services...")
-                updatePeerConnectionStatus(address, ConnectionStatus.CONNECTED)
-                val peer = _discoveredPeers.value[address]
-                _activeConnectionPeer.value = peer?.copy(connectionStatus = ConnectionStatus.CONNECTED)
-                gatt.requestMtu(BleConstants.REQUESTED_MTU)
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.d(TAG, "Disconnected from $address")
-                updatePeerConnectionStatus(address, ConnectionStatus.DISCONNECTED)
-                if (_activeConnectionPeer.value?.address == address) {
-                    _activeConnectionPeer.value = null
-                }
-            }
-        }
-
-        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-            Log.d(TAG, "MTU configured to $mtu. Discovering services.")
-            gatt.discoverServices()
-        }
-
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Services discovered on ${gatt.device.address}")
-            }
-        }
-
-        override fun onCharacteristicWrite(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Characteristic write succeeded: ${characteristic.uuid}")
-            } else {
-                Log.e(TAG, "Characteristic write failed: status $status")
-            }
-        }
-    }
-
-    fun sendMessage(targetAddress: String, content: String, onResult: (Boolean, String) -> Unit) {
-        val gatt = activeGattClient
-        if (gatt == null || _activeConnectionPeer.value?.address != targetAddress) {
-            onResult(false, "No active GATT connection to peer")
-            return
-        }
-
-        val service = gatt.getService(BleConstants.SERVICE_UUID)
-        val char = service?.getCharacteristic(BleConstants.CHAR_MESSAGE_UUID)
-        if (char == null) {
-            onResult(false, "NearPulse GATT service not ready")
-            return
-        }
-
-        val messageId = UUID.randomUUID().toString()
-        val packet = BlePacket(
-            packetType = BleConstants.PACKET_TYPE_MSG,
-            messageId = messageId,
-            senderPseudonym = localPseudonym,
-            payload = content
-        )
-
-        char.value = packet.toByteArray()
-        val written = gatt.writeCharacteristic(char)
-        if (written) {
-            onResult(true, messageId)
-        } else {
-            onResult(false, "Write command rejected by Bluetooth stack")
-        }
-    }
-
-    fun acknowledgeSos(alert: SosAlert) {
-        val gatt = activeGattClient
-        if (gatt != null && gatt.device.address == alert.broadcasterAddress) {
-            val service = gatt.getService(BleConstants.SERVICE_UUID)
-            val char = service?.getCharacteristic(BleConstants.CHAR_ACK_UUID)
-            if (char != null) {
-                val packet = BlePacket(
-                    packetType = BleConstants.PACKET_TYPE_SOS_ACK,
-                    messageId = alert.alertId,
-                    senderPseudonym = localPseudonym,
-                    payload = "RESCUE_ACK"
-                )
-                char.value = packet.toByteArray()
-                gatt.writeCharacteristic(char)
-            }
-        }
-        _activeSosAlert.value = alert.copy(isAcknowledgedByLocalUser = true)
-    }
-
-    fun dismissSosAlert() {
-        _activeSosAlert.value = null
-    }
-
-    private fun sendAckToDevice(device: BluetoothDevice, messageId: String) {
-        // If connected as server or client, write ACK packet
-        coroutineScope.launch {
-            _messageAckEvents.emit(messageId)
-        }
-    }
-
-    private fun handleIncomingMessage(senderAddress: String, packet: BlePacket) {
-        coroutineScope.launch {
-            val msg = BleMessage(
-                id = packet.messageId,
-                peerAddress = senderAddress,
-                senderPseudonym = packet.senderPseudonym,
-                content = packet.payload,
-                timestamp = System.currentTimeMillis(),
-                isOutgoing = false,
-                status = MessageDeliveryStatus.DELIVERED
-            )
-            _incomingMessages.emit(msg)
-        }
-    }
-
-    private fun handleIncomingAck(messageId: String) {
-        coroutineScope.launch {
-            _messageAckEvents.emit(messageId)
-        }
-    }
-
-    private fun handleIncomingSos(senderAddress: String, packet: BlePacket) {
-        _activeSosAlert.value = SosAlert(
-            alertId = packet.messageId,
-            broadcasterAddress = senderAddress,
-            broadcasterPseudonym = packet.senderPseudonym,
-            timestamp = System.currentTimeMillis(),
-            details = packet.payload.ifBlank { "Emergency SOS Signal" }
-        )
-    }
-
-    private fun updatePeerConnectionStatus(address: String, status: ConnectionStatus) {
-        val current = _discoveredPeers.value.toMutableMap()
-        current[address]?.let { peer ->
-            current[address] = peer.copy(connectionStatus = status)
-            _discoveredPeers.value = current
-        }
-    }
-
-    fun clearDiscoveredPeers() {
-        _discoveredPeers.value = emptyMap()
-    }
-
-    fun cleanup() {
+    fun cleanUp() {
         stopDiscovery()
         stopAdvertising()
-        disconnectActiveGatt()
         try {
             gattServer?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing GATT server: ${e.message}")
+            Log.w(tag, "Error closing GATT server: ${e.message}")
         }
-        gattServer = null
         coroutineScope.cancel()
     }
 }

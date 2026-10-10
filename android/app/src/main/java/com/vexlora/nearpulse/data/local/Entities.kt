@@ -5,30 +5,32 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "messages")
 data class MessageEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey
+    val id: String,
     val peerAddress: String,
     val senderPseudonym: String,
-    val content: String,
+    val text: String,
     val timestamp: Long,
     val isOutgoing: Boolean,
-    val status: String,
-    val isSos: Boolean = false
+    val isDelivered: Boolean
 )
 
 @Entity(tableName = "peers")
 data class PeerEntity(
-    @PrimaryKey val address: String,
+    @PrimaryKey
+    val address: String,
     val pseudonym: String,
-    val lastRssi: Int,
     val lastSeenTimestamp: Long,
-    val circleCode: String?,
-    val isFavorite: Boolean = false
+    val lastRssi: Int,
+    val circleCode: String = "GENERAL",
+    val isTrusted: Boolean = false
 )
 
-@Entity(tableName = "safety_circle")
+@Entity(tableName = "safety_circles")
 data class SafetyCircleEntity(
-    @PrimaryKey val circleCode: String,
+    @PrimaryKey
+    val circleCode: String,
     val circleName: String,
-    val createdAt: Long,
-    val memberCount: Int
+    val memberCount: Int = 1,
+    val createdAt: Long = System.currentTimeMillis()
 )

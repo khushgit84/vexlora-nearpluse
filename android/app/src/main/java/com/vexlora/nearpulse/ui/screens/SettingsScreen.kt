@@ -1,5 +1,6 @@
 package com.vexlora.nearpulse.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -21,204 +22,336 @@ import com.vexlora.nearpulse.ui.viewmodel.NearPulseViewModel
 
 @Composable
 fun SettingsScreen(
-    viewModel: NearPulseViewModel,
-    onBack: () -> Unit
+    viewModel: NearPulseViewModel
 ) {
-    val scrollState = rememberScrollState()
-    var showClearConfirm by remember { mutableStateOf(false) }
+    val currentPseudonym by viewModel.localPseudonym.collectAsState()
+    val allPeers by viewModel.allDbPeers.collectAsState()
+    val allMessages by viewModel.allDbMessages.collectAsState()
+
+    var pseudonymInput by remember { mutableStateOf(currentPseudonym) }
+    var showSavedToast by remember { mutableStateOf(false) }
+    var showWipeConfirm by remember { mutableStateOf(false) }
+    var testNotifStatus by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(CyberBgDark)
-            .padding(16.dp)
-            .verticalScroll(scrollState)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-            }
+        Column {
             Text(
-                text = "SETTINGS & DIAGNOSTICS",
+                text = "SETTINGS & HARDWARE",
                 style = MaterialTheme.typography.titleLarge,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Black,
+                color = ElectricCyan
+            )
+            Text(
+                text = "BLE STACK & LOCAL STORAGE DIAGNOSTICS",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Hardware & Bluetooth Diagnostics Card
-        Text(text = "BLUETOOTH HARDWARE STACK", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(6.dp))
-
+        // Identity Configuration Card
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CyberSurfaceDark),
-            shape = RoundedCornerShape(12.dp)
+            colors = CardDefaults.cardColors(containerColor = CyberCard),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(14.dp))
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                SettingStatusRow(label = "Bluetooth Hardware Adapter", status = if (viewModel.bleManager.isBleSupported()) "Detected" else "Unavailable", isGood = viewModel.bleManager.isBleSupported())
-                Divider(color = CyberBorder, modifier = Modifier.padding(vertical = 8.dp))
-                SettingStatusRow(label = "Bluetooth State", status = if (viewModel.bleManager.isBluetoothEnabled()) "Enabled" else "Turned Off", isGood = viewModel.bleManager.isBluetoothEnabled())
-                Divider(color = CyberBorder, modifier = Modifier.padding(vertical = 8.dp))
-                SettingStatusRow(label = "BLE Peripheral Advertising", status = if (viewModel.bleManager.isAdvertisingSupported()) "Supported" else "Not Supported", isGood = viewModel.bleManager.isAdvertisingSupported())
-                Divider(color = CyberBorder, modifier = Modifier.padding(vertical = 8.dp))
-                SettingStatusRow(label = "Target Service UUID", status = "7b14d2e0 (128-bit LE)", isGood = true)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Privacy & Rotating Pseudonyms
-        Text(text = "PRIVACY & EPHEMERAL IDENTITY", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CyberSurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(text = "Active Pseudonym", fontSize = 13.sp, color = TextSecondary)
-                        Text(
-                            text = viewModel.bleManager.localPseudonym,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ElectricCyan
-                        )
-                    }
-                    Button(
-                        onClick = { viewModel.rotatePseudonym() },
-                        colors = ButtonDefaults.buttonColors(containerColor = CyberSurfaceElevated),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(text = "Rotate ID", color = ElectricCyan, fontSize = 12.sp)
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "VEXLORA NearPulse never transmits your phone number, IMEI, MAC address, or contact book in BLE packets.",
-                    fontSize = 11.sp,
-                    color = TextMuted
+                    text = "LOCAL CALLSIGN / PSEUDONYM",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Android 12+ Permission Declarations Info
-        Text(text = "SECURITY & OS PERMISSION MODEL", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CyberSurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                PermissionInfoItem(name = "BLUETOOTH_SCAN", note = "neverForLocation flag active: zero GPS tracking")
-                PermissionInfoItem(name = "BLUETOOTH_ADVERTISE", note = "Permits broadcasting emergency SOS beacons")
-                PermissionInfoItem(name = "BLUETOOTH_CONNECT", note = "Permits P2P GATT encrypted message transfers")
-                PermissionInfoItem(name = "POST_NOTIFICATIONS", note = "Emergency SOS acoustic & siren vibration alerts")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Danger Zone: Clear Local Database
-        Text(text = "LOCAL DATA MANAGEMENT", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CyberSurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "All chat history and peer sightings are stored strictly in local Room SQLite storage on this handset.",
-                    fontSize = 12.sp,
+                    text = "Visible to nearby peers in the BLE broadcast beacon",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = { showClearConfirm = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = SosRed.copy(alpha = 0.2f)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = SosRed)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Clear All Local Messages & History", color = SosRed, fontWeight = FontWeight.Bold)
+                    TextField(
+                        value = pseudonymInput,
+                        onValueChange = { if (it.length <= 12) pseudonymInput = it.uppercase() },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = CyberCardElevated,
+                            unfocusedContainerColor = CyberCardElevated,
+                            focusedTextColor = ElectricCyan,
+                            unfocusedTextColor = ElectricCyan,
+                            cursorColor = ElectricCyan
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.updatePseudonym(pseudonymInput)
+                            showSavedToast = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("SAVE", color = CyberBgDark, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (showSavedToast) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Callsign updated successfully!", color = EmeraldGreen, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // About Vexlora NearPulse
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Hardware Diagnostics Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = CyberCard),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(14.dp))
         ) {
-            Text(text = "VEXLORA NearPulse v1.0.0 (Build 100)", fontSize = 12.sp, color = TextMuted)
-            Text(text = "Engineered for zero-network resilience", fontSize = 11.sp, color = TextMuted)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "BLE HARDWARE CAPABILITIES",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                DiagnosticRow(label = "Bluetooth Hardware Adapter", value = if (viewModel.isBleSupported()) "SUPPORTED" else "UNAVAILABLE", isGood = viewModel.isBleSupported())
+                DiagnosticRow(label = "Bluetooth Radio Status", value = if (viewModel.isBluetoothEnabled()) "ENABLED" else "DISABLED", isGood = viewModel.isBluetoothEnabled())
+                DiagnosticRow(label = "Multiple BLE Advertisements", value = if (viewModel.isAdvertisingSupported()) "SUPPORTED" else "LIMITED", isGood = viewModel.isAdvertisingSupported())
+                DiagnosticRow(label = "GATT Protocol MTU", value = "512 BYTES", isGood = true)
+                DiagnosticRow(label = "Operating Frequency", value = "2.402 - 2.480 GHz ISM", isGood = true)
+                DiagnosticRow(label = "Privacy Flags", value = "neverForLocation (Zero GPS)", isGood = true)
+            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // Offline Database Storage Stats Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = CyberCard),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(14.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "LOCAL ROOM PERSISTENCE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
 
-        // Confirm Dialog
-        if (showClearConfirm) {
-            AlertDialog(
-                onDismissRequest = { showClearConfirm = false },
-                title = { Text("Erase Local NearPulse Data?") },
-                text = { Text("This will permanently remove all cached messages, peer encounter logs, and circle memberships from this phone.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.clearLocalData()
-                            showClearConfirm = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SosRed)
-                    ) {
-                        Text("Erase Everything")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Discovered Peers Cached", color = TextSecondary)
+                    Text("${allPeers.size}", color = TextPrimary, fontWeight = FontWeight.Bold)
                 }
-            )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Offline Message Logs", color = TextSecondary)
+                    Text("${allMessages.size}", color = TextPrimary, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = { showWipeConfirm = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed.copy(alpha = 0.2f)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CrimsonRed.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                ) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = CrimsonRed, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("PURGE LOCAL DATABASE", color = CrimsonRed, fontWeight = FontWeight.Bold)
+                }
+            }
         }
+
+        // Notification & Alert Drill Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = CyberCard),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(14.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "NOTIFICATIONS & ALERT DRILL",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = ElectricCyan,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Verify heads-up system notifications, sender name, message preview, sound, and vibration when outside the app.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Test now
+                Button(
+                    onClick = {
+                        viewModel.testMessageNotification(0)
+                        testNotifStatus = "Direct message notification posted! Check status bar."
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = CyberBgDark, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("TEST CHAT NOTIFICATION NOW", color = CyberBgDark, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Test in 5s (minimize app)
+                OutlinedButton(
+                    onClick = {
+                        viewModel.testMessageNotification(5)
+                        testNotifStatus = "Triggering in 5s! Minimize or lock phone now to test outside the app!"
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, ElectricCyan),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Timer, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("TEST IN 5 SECONDS (MINIMIZE APP)", color = ElectricCyan, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Test SOS
+                OutlinedButton(
+                    onClick = {
+                        viewModel.testEmergencyAlarm(0)
+                        testNotifStatus = "Emergency SOS siren & Morse vibration triggered!"
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, CrimsonRed),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.WarningAmber, contentDescription = null, tint = CrimsonRed, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("TEST EMERGENCY SOS ALARM", color = CrimsonRed, fontWeight = FontWeight.Bold)
+                }
+
+                if (testNotifStatus != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = testNotifStatus!!,
+                        color = EmeraldGreen,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // Decentralization Notice
+        Card(
+            colors = CardDefaults.cardColors(containerColor = CyberCardElevated),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("AIR-GAPPED ARCHITECTURE", color = EmeraldGreen, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "VEXLORA NearPulse requires zero internet connectivity, zero user logins, and zero cloud backends. All communication happens exclusively between peer device Bluetooth Low Energy radios within 2.4 GHz physical proximity.",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Version 1.0.0 • VEXLORA Mesh Network",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+    }
+
+    if (showWipeConfirm) {
+        AlertDialog(
+            onDismissRequest = { showWipeConfirm = false },
+            title = { Text("Purge Local Database?", color = CrimsonRed, fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently clear all cached peer encounters and message logs stored in local SQLite Room storage on this phone.", color = TextSecondary) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearAllData()
+                        showWipeConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed)
+                ) {
+                    Text("WIPE DATA", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWipeConfirm = false }) {
+                    Text("CANCEL", color = TextSecondary)
+                }
+            },
+            containerColor = CyberCard
+        )
     }
 }
 
 @Composable
-fun SettingStatusRow(label: String, status: String, isGood: Boolean) {
+fun DiagnosticRow(label: String, value: String, isGood: Boolean) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 13.sp, color = TextPrimary)
-        Text(text = status, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isGood) SignalGreen else SosRed)
-    }
-}
-
-@Composable
-fun PermissionInfoItem(name: String, note: String) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = name, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ElectricCyan)
-        Text(text = note, fontSize = 11.sp, color = TextMuted)
+        Text(text = label, color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = value,
+            color = if (isGood) EmeraldGreen else CrimsonRed,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }

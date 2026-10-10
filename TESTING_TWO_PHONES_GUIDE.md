@@ -1,86 +1,90 @@
 # Two-Phone Physical Testing Guide for VEXLORA NearPulse
 
-This guide details how to build, install, and verify the offline BLE mesh features between two physical Android devices.
+This guide details how to install and test **VEXLORA NearPulse** across two physical Android devices completely offline without Wi-Fi, cellular, or internet connection.
 
 ---
 
-## 🛠️ Step 1: Open and Build in Android Studio
+## 1. Quick ADB Installation
 
-1. **Prerequisites**:
-   - Android Studio (Flamingo, Hedgehog, Iguana, Jellyfish, or newer).
-   - JDK 17 (set in Android Studio -> Settings -> Build, Execution, Deployment -> Build Tools -> Gradle -> Gradle JDK).
-   - Android SDK 34 installed.
-   - Two physical Android phones running Android 8.0 (API 26) through Android 15.
-
-2. **Open Project**:
-   - Open Android Studio and select **Open** -> choose the `android` directory.
-   - Wait for Gradle sync to complete.
-
-3. **Build APK via Gradle Command Line**:
-   ```bash
-   cd android
-   ./gradlew assembleDebug
-   ```
-   The debug APK will be generated at:
-   `android/app/build/outputs/apk/debug/app-debug.apk`
-
----
-
-## 📲 Step 2: Install on Two Physical Handsets
-
-Connect Phone 1 via USB with USB Debugging enabled:
-```bash
-adb -s <DEVICE_1_SERIAL> install -r app/build/outputs/apk/debug/app-debug.apk
+The compiled debug APK is located at:
+```
+android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Connect Phone 2 via USB with USB Debugging enabled:
-```bash
-adb -s <DEVICE_2_SERIAL> install -r app/build/outputs/apk/debug/app-debug.apk
+### Install on Device 1 (Primary):
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_1_SERIAL> install -r "d:\vscode\vexlora nearpluse\android\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+### Install on Device 2 (Secondary):
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_2_SERIAL> install -r "d:\vscode\vexlora nearpluse\android\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+### Launch on both handsets:
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell am start -n com.vexlora.nearpulse/.MainActivity
 ```
 
 ---
 
-## 🧪 Step 3: Step-by-Step Test Scenarios
+## 2. Test Procedure 1: Peer Discovery & 360° Radar
 
-### Test 1: Nearby Radar Discovery
-1. Launch **VEXLORA NearPulse** on both Phone 1 and Phone 2.
-2. Grant Bluetooth scan, advertise, and connect permissions on both phones.
-3. On Phone 1, tap **Start Nearby Discovery**. Phone 1 begins broadcasting its NearPulse UUID (`7b14d2e0`) and pseudonym (e.g. `NP-8A2F`).
-4. On Phone 2, tap **Bluetooth Radar**.
-5. **Expected Result**: Phone 2's radar sweep detects Phone 1 within 1–3 seconds, plotting it on the radar with its real RSSI category (e.g. "Excellent Signal (-55 dBm)") and "Just now" timestamp.
-
-### Test 2: Two-Way Offline P2P GATT Messaging
-1. On Phone 2's Radar screen, tap on Phone 1 (`NP-8A2F`) and select **Connect**.
-2. Phone 2 opens a GATT client connection to Phone 1.
-3. Phone 2 sends a message: *"Offline test: all clear"*.
-4. **Expected Result**:
-   - Phone 1's GATT server receives the write packet on `CHAR_MESSAGE_UUID`.
-   - Phone 1 automatically transmits a confirmation receipt on `CHAR_ACK_UUID`.
-   - Phone 2 updates the message status to `DELIVERED (✓✓)`.
-   - Phone 1 replies with quick preset: *"I'm safe"*. Phone 2 receives the reply without cellular or Wi-Fi data.
-
-### Test 3: Emergency SOS Beacon Broadcast & Mutual Acknowledgement
-1. On Phone 1, open **SOS Console**.
-2. Press and hold the SOS activation circle for **3 continuous seconds** (progress bar reaches 100%).
-3. Phone 1 begins transmitting high-priority emergency BLE advertisement packets.
-4. On Phone 2, a prominent red emergency overlay immediately pops up:
-   `"EMERGENCY SOS DETECTED: NP-8A2F needs assistance within BLE range!"`
-5. On Phone 2, tap **Acknowledge Help**.
-6. Phone 2 connects over GATT and writes a rescue confirmation packet.
-7. Phone 1 confirms that assistance has been acknowledged by a nearby peer.
-8. On Phone 1, tap **Cancel Emergency SOS** to terminate the emergency broadcast.
-
-### Test 4: Safety Circle Offline Handshake
-1. On Phone 1, navigate to **Safety Circle** and tap **Create Circle** (e.g., name: "Alpha Squad").
-2. Phone 1 generates a 6-character code (e.g. `NP-4921`).
-3. On Phone 2, tap **Enter Code** and input `NP-4921`.
-4. Both devices register the circle ID in local Room storage and advertise the circle hash.
-5. In the member list, Phone 1 and Phone 2 appear as detected circle members.
+1. **Grant Permissions**: Upon first launch on both phones, accept the Bluetooth Scan, Advertise, and Nearby Devices runtime permissions.
+2. **Turn On Radio on Phone 1**:
+   - On the **Home** tab, tap **START SCAN** (turns green).
+   - Tap **BROADCAST** (turns cyan).
+3. **Turn On Radio on Phone 2**:
+   - Tap **START SCAN** and **BROADCAST**.
+4. **Inspect Radar**:
+   - Switch to the **Radar** tab on Phone 1.
+   - Observe the 360° rotating radar sweep.
+   - The second phone will appear as a pulsing blip with its pseudonym (e.g. `NP-XXXX`).
+   - Notice the radial distance ring according to physical separation:
+     - **< 1m**: Immediate range (-40 to -60 dBm)
+     - **1m - 5m**: Near range (-60 to -75 dBm)
+     - **5m - 15m**: Mid range (-75 to -90 dBm)
+     - **> 15m**: Far range (-90+ dBm)
+   - Tap the blip to view signal telemetry (RSSI in dBm) and tap **OPEN CHAT**.
 
 ---
 
-## ⚠️ Known Hardware & OS Limitations
+## 3. Test Procedure 2: Direct 100% Offline P2P Chat
 
-1. **Android Virtual Device (Emulator)**: Emulators do NOT have real Bluetooth chips and cannot advertise or measure physical RSSI attenuation. Testing MUST be done on real phones.
-2. **Line of Sight & Physical Range**: Direct Bluetooth LE range is typically 10 to 30 meters. Thick concrete walls or metal barriers reduce signal strength.
-3. **OS Background Restrictions**: Android aggressively throttles BLE scanning when the screen is locked unless running in foreground with the included `NearPulseForegroundService`.
+1. In the **Chat** tab, select the detected peer from the top bar or radar.
+2. Send a custom text message (or tap preset chips like *"Are you safe?"*).
+3. **Delivery Acknowledgment (✓✓)**:
+   - Initial transmission shows a single checkmark (`✓`).
+   - When the receiver handset processes the packet over BLE GATT, it automatically returns an ACK packet, updating the status to a double checkmark (`✓✓`).
+4. All messages are stored permanently in local SQLite **Room** persistence on both devices.
+
+---
+
+## 4. Test Procedure 3: Emergency SOS Distress Beacon & Background Alarms
+
+1. **Background Siren & Heads-Up Notification**:
+   - When any device running NearPulse receives an incoming SOS distress packet (even while the app is minimized in the background or device is locked):
+     - **Audible Siren**: Plays high-priority system alarm sound (`TYPE_ALARM`).
+     - **SOS Morse Code Vibration**: Phone hardware vibrator fires the international SOS sequence (`... --- ...` : 3 short pulses, 3 long pulses, 3 short pulses).
+     - **Heads-Up Banner**: High-priority notification pops up over any active app with the sender's callsign, signal strength (in dBm), and distance estimate.
+     - **Direct Rescue Action**: Tapping the notification immediately wakes the device and opens the SOS radar.
+
+2. **Triggering from Phone 1**:
+   - Navigate to the **SOS** tab.
+   - Select an emergency category (*"MEDICAL EMERGENCY"* or *"TRAPPED / PHYSICAL HAZARD"*).
+   - **Hold the circular SOS button for 3 seconds** (animated progress ring fills to prevent accidental activation).
+   - Phone 1 provides tactile vibration feedback confirming high-gain distress pulses are broadcasting.
+
+3. **Self-Drill Simulator (Immediate or Background)**:
+   - On the **SOS** screen, scroll down to the **EMERGENCY DRILL SIMULATOR** card.
+   - Tap **TEST NOW** to immediately trigger the siren, vibration, and heads-up banner.
+   - Or tap **TEST IN BG (5s)**, minimize the app or lock the screen, and observe the emergency alarm trigger after 5 seconds!
+
+---
+
+## 5. Test Procedure 4: Mesh Safety Circle Grouping
+
+1. On both phones, go to the **Circle** tab.
+2. Tap **SWITCH CIRCLE** and enter the same code on both devices (e.g., `ALPHA-7`).
+3. Both devices will now recognize each other as official circle team members (highlighted with an Emerald Green glow on radar).
+4. Tap any of the **ONE-TAP CIRCLE CHECK-IN** buttons (e.g., *"ALL MEMBERS SAFE & ACCOUNTED FOR"* or *"MEETING AT EXTRACTION POINT ALPHA"*) to broadcast a group status ping to all circle members in range.

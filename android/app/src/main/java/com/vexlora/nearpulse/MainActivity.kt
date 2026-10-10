@@ -6,184 +6,241 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.*
 import com.vexlora.nearpulse.ui.screens.*
-import com.vexlora.nearpulse.ui.theme.CyberBgDark
-import com.vexlora.nearpulse.ui.theme.CyberBorder
-import com.vexlora.nearpulse.ui.theme.ElectricCyan
-import com.vexlora.nearpulse.ui.theme.TextMuted
-import com.vexlora.nearpulse.ui.theme.VexloraNearPulseTheme
+import com.vexlora.nearpulse.ui.theme.*
 import com.vexlora.nearpulse.ui.viewmodel.NearPulseViewModel
-import kotlinx.coroutines.flow.collectLatest
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Home : Screen("home", "Home", Icons.Default.Home)
+    object Home : Screen("home", "Home", Icons.Default.Sensors)
     object Radar : Screen("radar", "Radar", Icons.Default.Radar)
-    object Chat : Screen("chat", "Chat", Icons.Default.Chat)
-    object Sos : Screen("sos", "SOS", Icons.Default.Warning)
-    object Circle : Screen("circle", "Circle", Icons.Default.GroupWork)
-    object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    object Chat : Screen("chat", "Chat", Icons.AutoMirrored.Filled.Chat)
+    object Sos : Screen("sos", "SOS", Icons.Default.Campaign)
+    object Circle : Screen("circle", "Circle", Icons.Default.Group)
+    object Settings : Screen("settings", "Settings", Icons.Default.Tune)
 }
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: NearPulseViewModel by viewModels()
+    private val pendingRoute = mutableStateOf<String?>(null)
 
-    private val viewModel: NearPulseViewModel by viewModels {
-        val app = application as NearPulseApplication
-        NearPulseViewModel.Factory(app.repository)
-    }
-
-    private val requestBluetoothPermissionsLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allGranted = permissions.values.all { it }
-        if (!allGranted) {
-            Toast.makeText(
-                this,
-                "NearPulse requires Bluetooth permissions to discover offline peers.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
-    private val enableBluetoothLauncher = registerForActivityResult(
+    private val btEnableLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode != RESULT_OK) {
-            Toast.makeText(this, "Bluetooth must be enabled for offline discovery", Toast.LENGTH_SHORT).show()
-        }
+    ) { _ ->
+        viewModel.startAutoPulse()
+    }
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        checkBluetoothAndStart()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        handleIntent(intent)
         checkAndRequestPermissions()
 
         setContent {
             VexloraNearPulseTheme {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
+                val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
 
-                // Status Toast Collector
-                LaunchedEffect(Unit) {
-                    viewModel.statusNotice.collectLatest { msg ->
-                        Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-                val bottomNavItems = listOf(
+                val items = listOf(
                     Screen.Home,
                     Screen.Radar,
                     Screen.Chat,
                     Screen.Sos,
-                    Screen.Circle
+                    Screen.Circle,
+                    Screen.Settings
                 )
+
+                // Handle incoming navigation intent from heads-up message or SOS notifications
+                val target = pendingRoute.value
+                LaunchedEffect(target) {
+                    if (target != null) {
+                        navController.navigate(target) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                        pendingRoute.value = null
+                    }
+                }
 
                 Scaffold(
                     bottomBar = {
                         NavigationBar(
-                            containerColor = CyberBgDark,
-                            tonalElevation = NavigationBarDefaults.Elevation
+                            containerColor = CyberCard,
+                            tonalElevation = 8.dp
                         ) {
-                            bottomNavItems.forEach { screen ->
+                            items.forEach { screen ->
                                 val selected = currentRoute == screen.route
+                                val isSos = screen == Screen.Sos
+
                                 NavigationBarItem(
-                                    selected = selected,
-                                    onClick = {
-                                        if (currentRoute != screen.route) {
-                                            navController.navigate(screen.route) {
-                                                popUpTo(Screen.Home.route) { saveState = true }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        }
-                                    },
                                     icon = {
                                         Icon(
                                             imageVector = screen.icon,
                                             contentDescription = screen.title,
-                                            tint = if (selected) ElectricCyan else TextMuted
+                                            tint = when {
+                                                isSos && selected -> CrimsonRed
+                                                isSos -> CrimsonRed.copy(alpha = 0.7f)
+                                                selected -> ElectricCyan
+                                                else -> TextMuted
+                                            }
                                         )
                                     },
                                     label = {
                                         Text(
                                             text = screen.title,
-                                            color = if (selected) ElectricCyan else TextMuted
+                                            color = when {
+                                                isSos && selected -> CrimsonRed
+                                                selected -> ElectricCyan
+                                                else -> TextMuted
+                                            },
+                                            style = MaterialTheme.typography.labelSmall
                                         )
-                                    }
+                                    },
+                                    selected = selected,
+                                    onClick = {
+                                        if (currentRoute != screen.route) {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        indicatorColor = if (isSos) CrimsonRed.copy(alpha = 0.2f) else ElectricCyan.copy(alpha = 0.15f)
+                                    )
                                 )
                             }
                         }
                     }
                 ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = Screen.Home.route,
-                        modifier = Modifier.padding(innerPadding)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(CyberBgDark)
+                            .padding(innerPadding)
                     ) {
-                        composable(Screen.Home.route) {
-                            HomeScreen(
-                                viewModel = viewModel,
-                                onNavigateToRadar = { navController.navigate(Screen.Radar.route) },
-                                onNavigateToChat = { navController.navigate(Screen.Chat.route) },
-                                onNavigateToSos = { navController.navigate(Screen.Sos.route) },
-                                onNavigateToCircle = { navController.navigate(Screen.Circle.route) },
-                                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
-                            )
-                        }
-                        composable(Screen.Radar.route) {
-                            RadarScreen(
-                                viewModel = viewModel,
-                                onPeerSelected = { peer ->
-                                    viewModel.selectPeerForChat(peer)
-                                    navController.navigate(Screen.Chat.route)
-                                },
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-                        composable(Screen.Chat.route) {
-                            ChatScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-                        composable(Screen.Sos.route) {
-                            SosScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-                        composable(Screen.Circle.route) {
-                            SafetyCircleScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-                        composable(Screen.Settings.route) {
-                            SettingsScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
+                        NavHost(
+                            navController = navController,
+                            startDestination = Screen.Home.route,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            composable(Screen.Home.route) {
+                                HomeScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToRadar = { navController.navigate(Screen.Radar.route) },
+                                    onNavigateToChat = { navController.navigate(Screen.Chat.route) },
+                                    onNavigateToSos = { navController.navigate(Screen.Sos.route) },
+                                    onNavigateToCircle = { navController.navigate(Screen.Circle.route) }
+                                )
+                            }
+                            composable(Screen.Radar.route) {
+                                RadarScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToChat = { navController.navigate(Screen.Chat.route) }
+                                )
+                            }
+                            composable(Screen.Chat.route) {
+                                ChatScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToRadar = { navController.navigate(Screen.Radar.route) }
+                                )
+                            }
+                            composable(Screen.Sos.route) {
+                                SosScreen(viewModel = viewModel)
+                            }
+                            composable(Screen.Circle.route) {
+                                SafetyCircleScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToChat = { navController.navigate(Screen.Chat.route) }
+                                )
+                            }
+                            composable(Screen.Settings.route) {
+                                SettingsScreen(viewModel = viewModel)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val route = intent?.getStringExtra("EXTRA_NAV_ROUTE")
+        val peerAddress = intent?.getStringExtra("EXTRA_PEER_ADDRESS")
+        val peerPseudonym = intent?.getStringExtra("EXTRA_PEER_PSEUDONYM")
+
+        val testAction = intent?.getStringExtra("EXTRA_TEST_ACTION")
+        if (testAction == "NOTIFICATION") {
+            intent.removeExtra("EXTRA_TEST_ACTION")
+            val delaySec = intent.getLongExtra("EXTRA_DELAY_SEC", 0L)
+            viewModel.testMessageNotification(delaySec)
+        }
+
+        if (peerAddress != null) {
+            intent?.removeExtra("EXTRA_PEER_ADDRESS")
+            viewModel.selectPeerByAddress(peerAddress, peerPseudonym)
+        }
+
+        if (route != null) {
+            intent?.removeExtra("EXTRA_NAV_ROUTE")
+            pendingRoute.value = when (route) {
+                "chat" -> Screen.Chat.route
+                "sos" -> Screen.Sos.route
+                "radar" -> Screen.Radar.route
+                "settings" -> Screen.Settings.route
+                "circle" -> Screen.Circle.route
+                else -> Screen.Home.route
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkBluetoothAndStart()
+    }
+
+    private fun checkBluetoothAndStart() {
+        if (!viewModel.isBluetoothEnabled()) {
+            try {
+                btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            } catch (_: Exception) {}
+        } else {
+            viewModel.startAutoPulse()
         }
     }
 
@@ -200,10 +257,13 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
             }
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            }
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -213,17 +273,9 @@ class MainActivity : ComponentActivity() {
         }
 
         if (permissionsToRequest.isNotEmpty()) {
-            requestBluetoothPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
-        }
-
-        // Check if Bluetooth is turned on
-        if (!viewModel.bleManager.isBluetoothEnabled()) {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            try {
-                enableBluetoothLauncher.launch(enableBtIntent)
-            } catch (e: Exception) {
-                // Handled gracefully
-            }
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        } else {
+            checkBluetoothAndStart()
         }
     }
 }

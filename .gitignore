@@ -1,8 +1,15 @@
+# Gradle & Android Build Artifacts
+.gradle/
+**/build/
+android/.gradle/
+android/app/build/
+android/local.properties
+android/.idea/
+
+# Node & Sites runtime
+.sites-runtime/
 node_modules/
-build/
-dist/
-coverage/
+
+# OS Files
 .DS_Store
-*.log
-.env*
-!.env.example
+Thumbs.db

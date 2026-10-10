@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEXLORA NearPulse — Offline BLE Radio Mesh Network</title>
+    <meta name="description" content="100% Offline peer-to-peer radio communication for Android and iOS over Bluetooth Low Energy. Zero cellular, zero internet, zero cloud.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Outfit:wght@300;400;600;800;900&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Glows & Grid -->
+    <div class="cyber-grid" aria-hidden="true"></div>
+    <div class="glow-orb orb-1" aria-hidden="true"></div>
+    <div class="glow-orb orb-2" aria-hidden="true"></div>
+    <div class="glow-orb orb-3" aria-hidden="true"></div>
+
+    <!-- Navigation Header -->
+    <header class="header">
+        <div class="header-container">
+            <a href="#" class="brand-logo" id="logo-link">
+                <div class="logo-glyph">
+                    <svg viewBox="0 0 32 32" fill="none">
+                        <path d="M6 8 L16 26 L26 8 L21 8 L16 18 L11 8 Z" fill="#00E5FF"/>
+                        <path d="M16 4 L16 28 M16 4 L23 11 L9 21 M9 18 L23 28 L16 28" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">VEXLORA</span>
+                    <span class="brand-sub">NearPulse</span>
+                </div>
+            </a>
+
+            <nav class="nav-links">
+                <a href="#features" class="nav-link" id="nav-features">Features</a>
+                <a href="#radar-demo" class="nav-link" id="nav-radar">Live Radar</a>
+                <a href="#cross-platform" class="nav-link" id="nav-cross">iOS & Android</a>
+                <a href="#install-guide" class="nav-link" id="nav-guide">Install Guide</a>
+            </nav>
+
+            <div class="header-actions">
+                <a href="vexlora-nearpulse.apk" download="vexlora-nearpulse.apk" class="btn btn-primary" id="btn-header-download">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    <span>Download APK</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <div class="hero-badge">
+                    <span class="pulse-dot"></span>
+                    <span class="badge-text">AIR-GAPPED 2.4 GHz BLE MESH ARCHITECTURE</span>
+                </div>
+
+                <h1 class="hero-title">
+                    Talk When The World <br>
+                    <span class="gradient-text">Goes Offline.</span>
+                </h1>
+
+                <p class="hero-description">
+                    Zero Cellular Towers. Zero Wi-Fi. Zero Internet. Zero Logins.<br>
+                    <strong>VEXLORA NearPulse</strong> transforms your phone into an encrypted, decentralized Bluetooth Low Energy radio node for proximity peer-to-peer chat, radar tracking, and urgent emergency SOS distress alerts.
+                </p>
+
+                <!-- Primary CTA Row -->
+                <div class="cta-group">
+                    <a href="vexlora-nearpulse.apk" download="vexlora-nearpulse.apk" class="btn btn-hero btn-cyan" id="btn-hero-apk">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9997.4482.9997.9997 0 .5516-.4481 1.0002-.9997 1.0002m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m11.4045-6.02l1.996-3.4572c.1017-.1764.0413-.4019-.135-.5037-.1766-.1017-.4022-.0413-.5039.1351l-2.0287 3.5137C15.6593 8.3546 13.9056 8 12 8s-3.6593.3546-5.2099 1.0093L4.7614 5.4956c-.1017-.1764-.3273-.2368-.5039-.1351-.1763.1018-.2367.3273-.135.5037l1.996 3.4572C2.6884 11.2384.4447 14.6186 0 18.7246h24c-.4447-4.106-2.6884-7.4862-6.1185-9.4032"/>
+                            </svg>
+                        </div>
+                        <div class="btn-copy">
+                            <span class="btn-primary-text">Download Android APK</span>
+                            <span class="btn-sub-text">Direct Install • v1.0.0 Debug (18 MB)</span>
+                        </div>
+                    </a>
+
+                    <a href="#cross-platform" class="btn btn-hero btn-glass" id="btn-hero-ios">
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.77 1.06-1.85.94-2.93-.91.04-2.03.61-2.68 1.38-.58.67-1.09 1.76-.95 2.81 1.02.08 2.06-.52 2.69-1.26"/>
+                            </svg>
+                        </div>
+                        <div class="btn-copy">
+                            <span class="btn-primary-text">iOS CoreBluetooth</span>
+                            <span class="btn-sub-text">Swift & SwiftUI Cross-Link</span>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Stats Strip -->
+                <div class="stats-strip">
+                    <div class="stat-card">
+                        <div class="stat-number">100m</div>
+                        <div class="stat-label">Physical Radio Range</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0.0 ms</div>
+                        <div class="stat-label">Cloud Latency (Air-Gapped)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">512 B</div>
+                        <div class="stat-label">Full MTU GATT Payload</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">100%</div>
+                        <div class="stat-label">Privacy (Zero Tracking)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- QR Code Instant Install Drawer -->
+        <section class="qr-install-section">
+            <div class="qr-card">
+                <div class="qr-info">
+                    <span class="pill-tag">📱 INSTANT PHONE INSTALL</span>
+                    <h3>Install On Your Phone Over Local Wi-Fi</h3>
+                    <p>Connect your Android or iPhone to the same Wi-Fi network and scan the QR code to download the APK directly, or navigate to:</p>
+                    <div class="lan-address-box">
+                        <code id="lan-url-display">http://192.168.29.18:8080</code>
+                        <button class="btn-copy-url" id="btn-copy-lan" title="Copy URL">Copy</button>
+                    </div>
+                    <p class="qr-hint">Works seamlessly in Chrome, Brave, Safari, and Samsung Internet.</p>
+                </div>
+                <div class="qr-canvas-wrap">
+                    <canvas id="qr-canvas" width="200" height="200"></canvas>
+                    <span class="qr-caption">Scan to download APK directly</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Live Radar Simulator -->
+        <section class="radar-section" id="radar-demo">
+            <div class="section-header">
+                <span class="section-tag">RF SPECTRUM TELEMETRY</span>
+                <h2 class="section-title">Interactive 2.4 GHz Radar Simulator</h2>
+                <p class="section-subtitle">Real-time visualization of how VEXLORA NearPulse isolates nearby phones from peripheral RF clutter.</p>
+            </div>
+
+            <div class="radar-demo-wrapper">
+                <div class="radar-screen-box">
+                    <div class="radar-hud-header">
+                        <span class="hud-status"><span class="pulse-green"></span> SCAN ACTIVE • 2.402 - 2.480 GHz ISM</span>
+                        <span class="hud-protocol">PROTOCOL: BLE GATT v1.0</span>
+                    </div>
+
+                    <div class="radar-canvas-container">
+                        <canvas id="interactive-radar" width="460" height="460"></canvas>
+                        <div class="radar-crosshair"></div>
+                    </div>
+
+                    <div class="radar-legend">
+                        <span class="legend-item"><span class="legend-dot cyan"></span> NearPulse Node</span>
+                        <span class="legend-item"><span class="legend-dot green"></span> Smartphone (Redmi / iPhone)</span>
+                        <span class="legend-item"><span class="legend-dot red"></span> Emergency SOS Distress</span>
+                        <span class="legend-item"><span class="legend-dot muted"></span> TV/Peripherals (Filtered Out)</span>
+                    </div>
+                </div>
+
+                <div class="radar-controls-box">
+                    <div class="card-glass">
+                        <h4>LIVE DETECTED PEER TELEMETRY</h4>
+                        <div class="peer-telemetry-list" id="telemetry-list">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <div class="card-glass packet-sim-box">
+                        <h4>TRANSMIT SIMULATED BLE PACKET</h4>
+                        <div class="packet-input-row">
+                            <input type="text" id="sim-pseudonym" value="NP-DELTA" placeholder="Callsign" maxlength="10">
+                            <input type="text" id="sim-message" value="Radio mesh link verified in sector 4." placeholder="Message text">
+                        </div>
+                        <div class="packet-btn-row">
+                            <button class="btn btn-small btn-cyan" id="btn-sim-send">Transmit GATT Packet</button>
+                            <button class="btn btn-small btn-crimson" id="btn-sim-sos">Trigger SOS Beacon</button>
+                        </div>
+                        <div class="packet-hex-dump" id="packet-hex-dump">
+                            01 01 08 08 00 24 4E 50 2D 44 45 4C 54 41 52 61 64 69 6F 20 ...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Grid -->
+        <section class="features-section" id="features">
+            <div class="section-header">
+                <span class="section-tag">TACTICAL ARCHITECTURE</span>
+                <h2 class="section-title">Built For Zero-Connectivity Scenarios</h2>
+                <p class="section-subtitle">Designed for disaster relief, remote hiking, crowded events, and resilient off-grid communication.</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon cyan-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3>Direct Radio Links</h3>
+                    <p>No cellular towers, no Wi-Fi routers, no servers. Transmits direct peer-to-peer radio waves over 2.4 GHz Bluetooth Low Energy with custom GATT services.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon purple-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="6"/>
+                            <circle cx="12" cy="12" r="2"/>
+                        </svg>
+                    </div>
+                    <h3>RF Spectrum Radar</h3>
+                    <p>Real-time visual radar calculates signal strength (RSSI), categorizing nearby nodes into Immediate (&lt;1m), Near (1-5m), and Mid-Range (5-15m) proximity.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon emerald-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <h3>Smart Phone-Only Filter</h3>
+                    <p>Advanced heuristics filter out Bluetooth TVs, set-top boxes, smart bulbs, and peripheral noise, ensuring your radar and contact lists display only actual phones.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon red-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3>Emergency SOS Alarms</h3>
+                    <p>3-second hold-to-activate distress beacon fires maximum-gain emergency pulses. Triggers high-priority notifications with Morse code audio and instant "Problem Solved" cutoff.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon amber-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Heads-Up Chat Banners</h3>
+                    <p>System notifications alert you outside the app with sender callsigns and message previews, vibrating and deep-linking directly into direct peer chat conversations.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon blue-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                    </div>
+                    <h3>Cross-Platform Mesh</h3>
+                    <p>Standardized binary packet protocol allows Android and iOS devices to discover, link, exchange ACK receipts, and broadcast mutual emergency alarms seamlessly.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- iOS & Cross-Platform Section -->
+        <section class="cross-platform-section" id="cross-platform">
+            <div class="cross-container">
+                <div class="cross-copy">
+                    <span class="section-tag">CROSS-DEVICE SUPPORT</span>
+                    <h2 class="section-title">Seamless iOS & Android Interoperability</h2>
+                    <p>Both Android (Kotlin / Jetpack Compose) and iOS (Swift / SwiftUI + CoreBluetooth) share identical 128-bit GATT UUID specifications and binary packet encoding.</p>
+
+                    <div class="spec-table">
+                        <div class="spec-row">
+                            <span class="spec-key">Service UUID</span>
+                            <code class="spec-val">7B14D2E0-252A-4DF4-8D4E-E17F5412E601</code>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-key">Message Char</span>
+                            <code class="spec-val">7B14D2E1-252A-4DF4-8D4E-E17F5412E601</code>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-key">ACK Delivery</span>
+                            <code class="spec-val">7B14D2E2-252A-4DF4-8D4E-E17F5412E601</code>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-key">Emergency SOS</span>
+                            <code class="spec-val">7B14D2E3-252A-4DF4-8D4E-E17F5412E601</code>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-key">Safety Circle Info</span>
+                            <code class="spec-val">7B14D2E4-252A-4DF4-8D4E-E17F5412E601</code>
+                        </div>
+                    </div>
+
+                    <div class="ios-status-card">
+                        <div class="ios-status-badge">
+                            <span class="pulse-dot-green"></span>
+                            <span>iOS Swift & SwiftUI Project Ready</span>
+                        </div>
+                        <p>Complete native Xcode project with <code>CBCentralManager</code>, <code>CBPeripheralManager</code>, and custom <code>UserNotifications</code> is available in the <code>/ios</code> repository folder.</p>
+                    </div>
+                </div>
+
+                <div class="cross-visual">
+                    <div class="phone-mockup phone-android">
+                        <div class="phone-bar">Android • OnePlus / Redmi</div>
+                        <div class="mockup-content">
+                            <div class="mockup-radar-preview"></div>
+                            <div class="mockup-msg out">
+                                <span class="tag">KHUSH</span>
+                                <p>Signal strong in north sector.</p>
+                            </div>
+                            <div class="mockup-msg in">
+                                <span class="tag">IPHONE-PRO</span>
+                                <p>Connected via CoreBluetooth ACK.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="phone-mockup phone-ios">
+                        <div class="phone-bar">iOS • iPhone 15 Pro</div>
+                        <div class="mockup-content">
+                            <div class="mockup-radar-preview"></div>
+                            <div class="mockup-msg in">
+                                <span class="tag">KHUSH</span>
+                                <p>Signal strong in north sector.</p>
+                            </div>
+                            <div class="mockup-msg out">
+                                <span class="tag">IPHONE-PRO</span>
+                                <p>Connected via CoreBluetooth ACK.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Install Guide Section -->
+        <section class="install-section" id="install-guide">
+            <div class="section-header">
+                <span class="section-tag">DEPLOYMENT GUIDE</span>
+                <h2 class="section-title">How To Install on Android in 60 Seconds</h2>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-num">01</div>
+                    <h4>Download APK</h4>
+                    <p>Click the download button or scan the QR code to save <code>vexlora-nearpulse.apk</code> to your device.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">02</div>
+                    <h4>Allow Unknown Sources</h4>
+                    <p>When prompted by Chrome or Files, tap <strong>Settings</strong> and enable "Allow from this source".</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">03</div>
+                    <h4>Grant Permissions</h4>
+                    <p>Grant <strong>Nearby Devices (Bluetooth)</strong> and <strong>Notifications</strong> permissions when launching.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">04</div>
+                    <h4>Start P2P Radio</h4>
+                    <p>Your phone immediately begins broadcasting your callsign and scanning for nearby peers offline!</p>
+                </div>
+            </div>
+
+            <div class="download-cta-banner">
+                <div class="cta-banner-text">
+                    <h3>Ready for resilient, zero-cloud communication?</h3>
+                    <p>Download the production debug build tested on Android 14, 15, and 16.</p>
+                </div>
+                <a href="vexlora-nearpulse.apk" download="vexlora-nearpulse.apk" class="btn btn-hero btn-cyan" id="btn-banner-download">
+                    Download APK Now (18 MB)
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <div class="brand-text">
+                    <span class="brand-name">VEXLORA</span>
+                    <span class="brand-sub">NearPulse</span>
+                </div>
+                <p class="footer-desc">Air-gapped Bluetooth Low Energy radio mesh for mission-critical offline communication.</p>
+            </div>
+            <div class="footer-col">
+                <h5>Architecture</h5>
+                <ul>
+                    <li>100% Offline (No Cloud)</li>
+                    <li>Low Latency BLE GATT</li>
+                    <li>Cross-Platform iOS & Android</li>
+                    <li>Room SQLite Local Cache</li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Download</h5>
+                <ul>
+                    <li><a href="vexlora-nearpulse.apk" download>Android APK (.apk)</a></li>
+                    <li><a href="#cross-platform">iOS Xcode Project</a></li>
+                    <li><a href="#install-guide">Installation Steps</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 VEXLORA NearPulse. Decentralized Offline Network.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

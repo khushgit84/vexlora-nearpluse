@@ -1,0 +1,308 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		110000012900000100000001 /* VexloraNearPulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000022900000100000001 /* VexloraNearPulseApp.swift */; };
+		110000032900000100000001 /* BleConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000042900000100000001 /* BleConstants.swift */; };
+		110000052900000100000001 /* BlePacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000062900000100000001 /* BlePacket.swift */; };
+		110000072900000100000001 /* BleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000082900000100000001 /* BleManager.swift */; };
+		110000092900000100000001 /* EmergencyAlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000102900000100000001 /* EmergencyAlertManager.swift */; };
+		110000112900000100000001 /* PeerNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000122900000100000001 /* PeerNode.swift */; };
+		110000132900000100000001 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000142900000100000001 /* ChatMessage.swift */; };
+		110000152900000100000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000162900000100000001 /* ContentView.swift */; };
+		110000172900000100000001 /* RadarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000182900000100000001 /* RadarView.swift */; };
+		110000192900000100000001 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000202900000100000001 /* ChatView.swift */; };
+		110000212900000100000001 /* SosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000222900000100000001 /* SosView.swift */; };
+		110000232900000100000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000242900000100000001 /* SettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		110000252900000100000001 /* VexloraNearPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VexloraNearPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		110000022900000100000001 /* VexloraNearPulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VexloraNearPulseApp.swift; sourceTree = "<group>"; };
+		110000042900000100000001 /* BleConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BleConstants.swift; sourceTree = "<group>"; };
+		110000062900000100000001 /* BlePacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlePacket.swift; sourceTree = "<group>"; };
+		110000082900000100000001 /* BleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BleManager.swift; sourceTree = "<group>"; };
+		110000102900000100000001 /* EmergencyAlertManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmergencyAlertManager.swift; sourceTree = "<group>"; };
+		110000122900000100000001 /* PeerNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNode.swift; sourceTree = "<group>"; };
+		110000142900000100000001 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		110000162900000100000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		110000182900000100000001 /* RadarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarView.swift; sourceTree = "<group>"; };
+		110000202900000100000001 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		110000222900000100000001 /* SosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SosView.swift; sourceTree = "<group>"; };
+		110000242900000100000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		110000262900000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		110000272900000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		110000282900000100000001 = {
+			isa = PBXGroup;
+			children = (
+				110000292900000100000001 /* VexloraNearPulse */,
+				110000302900000100000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		110000292900000100000001 /* VexloraNearPulse */ = {
+			isa = PBXGroup;
+			children = (
+				110000312900000100000001 /* App */,
+				110000322900000100000001 /* Core */,
+				110000332900000100000001 /* Models */,
+				110000342900000100000001 /* Views */,
+				110000352900000100000001 /* Resources */,
+			);
+			path = VexloraNearPulse;
+			sourceTree = "<group>";
+		};
+		110000312900000100000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				110000022900000100000001 /* VexloraNearPulseApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		110000322900000100000001 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				110000042900000100000001 /* BleConstants.swift */,
+				110000062900000100000001 /* BlePacket.swift */,
+				110000082900000100000001 /* BleManager.swift */,
+				110000102900000100000001 /* EmergencyAlertManager.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		110000332900000100000001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				110000122900000100000001 /* PeerNode.swift */,
+				110000142900000100000001 /* ChatMessage.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		110000342900000100000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				110000162900000100000001 /* ContentView.swift */,
+				110000182900000100000001 /* RadarView.swift */,
+				110000202900000100000001 /* ChatView.swift */,
+				110000222900000100000001 /* SosView.swift */,
+				110000242900000100000001 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		110000352900000100000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				110000262900000100000001 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		110000302900000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				110000252900000100000001 /* VexloraNearPulse.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		110000362900000100000001 /* VexloraNearPulse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 110000372900000100000001 /* Build configuration list for PBXNativeTarget "VexloraNearPulse" */;
+			buildPhases = (
+				110000382900000100000001 /* Sources */,
+				110000272900000100000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VexloraNearPulse;
+			productName = VexloraNearPulse;
+			productReference = 110000252900000100000001 /* VexloraNearPulse.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		110000392900000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+			};
+			buildConfigurationList = 110000402900000100000001 /* Build configuration list for PBXProject "VexloraNearPulse" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 110000282900000100000001;
+			productRefGroup = 110000302900000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				110000362900000100000001 /* VexloraNearPulse */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		110000382900000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				110000012900000100000001 /* VexloraNearPulseApp.swift in Sources */,
+				110000032900000100000001 /* BleConstants.swift in Sources */,
+				110000052900000100000001 /* BlePacket.swift in Sources */,
+				110000072900000100000001 /* BleManager.swift in Sources */,
+				110000092900000100000001 /* EmergencyAlertManager.swift in Sources */,
+				110000112900000100000001 /* PeerNode.swift in Sources */,
+				110000132900000100000001 /* ChatMessage.swift in Sources */,
+				110000152900000100000001 /* ContentView.swift in Sources */,
+				110000172900000100000001 /* RadarView.swift in Sources */,
+				110000192900000100000001 /* ChatView.swift in Sources */,
+				110000212900000100000001 /* SosView.swift in Sources */,
+				110000232900000100000001 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		110000412900000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		110000422900000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		110000432900000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VexloraNearPulse/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexlora.nearpulse;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		110000442900000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VexloraNearPulse/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexlora.nearpulse;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		110000402900000100000001 /* Build configuration list for PBXProject "VexloraNearPulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				110000412900000100000001 /* Debug */,
+				110000422900000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		110000372900000100000001 /* Build configuration list for PBXNativeTarget "VexloraNearPulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				110000432900000100000001 /* Debug */,
+				110000442900000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 110000392900000100000001 /* Project object */;
+}

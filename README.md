@@ -1,44 +1,49 @@
 # VEXLORA NearPulse 📡
-> **"Stay Connected. Even Without Internet."**
 
-VEXLORA NearPulse is a modern, native Android offline-first safety and peer-to-peer communication application built with Kotlin, Jetpack Compose, Material 3, and native Android Bluetooth Low Energy (BLE) APIs.
-
----
-
-## ⚡ Core Architecture
-
-- **Runtime & UI**: Native Android (Kotlin), Jetpack Compose, Material 3 Cyberpunk Dark Theme (`#070A0F`, Electric Cyan `#00F0FF`, Neon Violet `#A855F7`, SOS Red `#FF1744`).
-- **Bluetooth Subsystem**:
-  - `BluetoothLeScanner`: Scans for devices advertising the custom 128-bit NearPulse Service UUID (`7b14d2e0-252a-4df4-8d4e-e17f5412e601`).
-  - `BluetoothLeAdvertiser`: Broadcasts the device's ephemeral pseudonym and SOS distress state in BLE Service Data.
-  - `BluetoothGattServer`: Hosts GATT primary service with Characteristics for Message, Delivery ACK, Emergency Beacon, and Info Handshake.
-  - `BluetoothGatt` (Client): Connects to remote peer, negotiates MTU 512, and performs bidirectional packet exchange with acknowledgments.
-- **Local Persistence**: Room SQLite database (`NearPulseDatabase`) with entities for `MessageEntity`, `PeerEntity`, and `SafetyCircleEntity`.
-- **State Management**: Kotlin Coroutines + `StateFlow` + `SharedFlow` with lifecycle-aware ViewModels.
-- **Foreground Safety Service**: `NearPulseForegroundService` maintains BLE peripheral discovery and distress beacon listeners with Android 14 `connectedDevice` foreground service type.
+> **100% Offline Decentralized 2.4 GHz Bluetooth Low Energy Radio Mesh for Android & iOS**
+> Zero Cellular. Zero Wi-Fi. Zero Cloud. Zero Logins.
 
 ---
 
-## 🛡️ Permissions & Android 12+ Compatibility
+## ⚡ Overview
 
-The app adheres strictly to the Android 12 (API 31+) Bluetooth permissions:
+**VEXLORA NearPulse** turns standard smartphones into encrypted, decentralized radio nodes. Using native Android BLE and Apple CoreBluetooth APIs, NearPulse forms an ad-hoc local radio mesh for proximity direct chat, tactical RF spectrum radar tracking, and urgent emergency SOS mutual-rescue alerts.
 
-```xml
-<uses-permission
-    android:name="android.permission.BLUETOOTH_SCAN"
-    android:usesPermissionFlags="neverForLocation" />
-<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+- **Live Web Portal**: [https://khushgit84.github.io/vexlora-nearpluse/](https://khushgit84.github.io/vexlora-nearpluse/)
+- **Direct APK Download**: [Download v1.0.0 APK (18 MB)](https://github.com/khushgit84/vexlora-nearpluse/releases/download/v1.0.0/vexlora-nearpulse.apk)
+- **Native iOS Project**: [`/ios/VexloraNearPulse.xcodeproj`](ios/VexloraNearPulse.xcodeproj)
+
+---
+
+## 🏗️ Architecture
+
+```
+vexlora-nearpulse/
+├── android/               # Native Android (Kotlin, Jetpack Compose, Room SQLite, BLE GATT)
+├── ios/                   # Native iOS (Swift, SwiftUI, CoreBluetooth Central/Peripheral)
+├── web/                   # Cyberpunk Web Portal & Live 2.4 GHz Radar Simulator
+└── TESTING_TWO_PHONES_GUIDE.md # Step-by-step physical two-phone test manual
 ```
 
-- **`neverForLocation`**: Guarantees user privacy; the app does not access or derive physical GPS coordinates from Bluetooth beacons.
-- **Legacy Compatibility**: On Android 6 to 11, requests `ACCESS_FINE_LOCATION` (with `maxSdkVersion="30"`) solely because older Android OS versions required location to scan BLE beacons.
-- **Notification & Vibration**: `POST_NOTIFICATIONS` and `VIBRATE` for emergency SOS siren alerts.
+### 📡 Shared 128-bit GATT Protocol Profile
+| Characteristic | UUID | Description |
+| :--- | :--- | :--- |
+| **Primary Service** | `7B14D2E0-252A-4DF4-8D4E-E17F5412E601` | Primary NearPulse Mesh Service |
+| **Message Char** | `7B14D2E1-252A-4DF4-8D4E-E17F5412E601` | Direct P2P text message transmission |
+| **ACK Delivery** | `7B14D2E2-252A-4DF4-8D4E-E17F5412E601` | Delivery receipt acknowledgement |
+| **Emergency SOS** | `7B14D2E3-252A-4DF4-8D4E-E17F5412E601` | Emergency distress beacon & cancel trigger |
+| **Safety Info** | `7B14D2E4-252A-4DF4-8D4E-E17F5412E601` | Ephemeral node pseudonym handshake |
 
 ---
 
-## 📱 Hardware Requirements & Two-Phone Testing
+## 📱 Features
 
-For detailed instructions on flashing and testing between two physical Android devices, consult `TESTING_TWO_PHONES_GUIDE.md`.
+1. **RF Spectrum Radar HUD**: Calculates real-time signal strength (RSSI), categorizing nearby nodes into Immediate (<1m), Near (1-5m), and Mid-Range (5-15m).
+2. **Smart Phone-Only Filter**: Automatically filters out Bluetooth TVs, set-top boxes, smart bulbs, and peripheral RF noise.
+3. **Encrypted Direct Chat**: Low-latency P2P text messaging via BLE GATT with delivery receipts (`Delivered ✓`).
+4. **Emergency SOS & Cutoff**: 3-second hold-to-activate distress alarm with high-gain siren and Morse code vibrations. Tapping **"Problem Solved"** immediately silences the siren and cancels the alert across the mesh.
 
-*Note: Android Virtual Devices (emulators) do not support Bluetooth LE Peripheral Advertising or physical RF signal attenuation. Testing bidirectional messaging requires two physical Android handsets with Bluetooth 4.2+ (Bluetooth 5.0+ recommended).*
+---
+
+## 📄 License
+MIT License. Air-gapped and decentralized.

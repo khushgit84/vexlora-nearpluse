@@ -1,6 +1,0 @@
-{
-  "name": "VEXLORA NearPulse",
-  "description": "Stay Connected. Even Without Internet. Native Android BLE offline-first safety, radar discovery, and peer-to-peer communication app.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

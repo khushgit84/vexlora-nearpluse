@@ -1,176 +1,290 @@
 package com.vexlora.nearpulse.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.vexlora.nearpulse.NearPulseApplication
 import com.vexlora.nearpulse.ble.*
-import com.vexlora.nearpulse.data.local.SafetyCircleEntity
-import com.vexlora.nearpulse.data.repository.NearPulseRepository
+import com.vexlora.nearpulse.data.local.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.UUID
 
-class NearPulseViewModel(
-    private val repository: NearPulseRepository
-) : ViewModel() {
-
-    val bleManager = repository.bleManager
+class NearPulseViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application as NearPulseApplication
+    private val bleManager = app.bleManager
+    private val db = app.database
 
     val isScanning = bleManager.isScanning
     val isAdvertising = bleManager.isAdvertising
     val discoveredPeers = bleManager.discoveredPeers
-    val activeConnectionPeer = bleManager.activeConnectionPeer
     val activeSosAlert = bleManager.activeSosAlert
     val isSosBroadcasting = bleManager.isSosBroadcasting
 
-    private val _selectedPeerAddress = MutableStateFlow<String?>(null)
-    val selectedPeerAddress: StateFlow<String?> = _selectedPeerAddress.asStateFlow()
+    private val _selectedPeer = MutableStateFlow<DiscoveredPeer?>(null)
+    val selectedPeer: StateFlow<DiscoveredPeer?> = _selectedPeer.asStateFlow()
 
-    val currentMessages: StateFlow<List<BleMessage>> = _selectedPeerAddress.flatMapLatest { address ->
-        if (address != null) repository.getMessagesForPeer(address)
-        else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    private val _localPseudonym = MutableStateFlow(bleManager.localPseudonym)
+    val localPseudonym: StateFlow<String> = _localPseudonym.asStateFlow()
 
-    val safetyCircle: StateFlow<SafetyCircleEntity?> = repository.getStoredCircle()
-        .stateIn(viewModelScope, SharingStarted.Lazily, null)
+    private val _circleCode = MutableStateFlow(bleManager.currentCircleCode)
+    val circleCode: StateFlow<String> = _circleCode.asStateFlow()
 
-    private val _statusNotice = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val statusNotice = _statusNotice.asSharedFlow()
+    val safetyCircles = db.safetyCircleDao().getAllCircles()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allDbPeers = db.peerDao().getAllPeers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allDbMessages = db.messageDao().getAllMessages()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val currentChatMessages = _selectedPeer.flatMapLatest { peer ->
+        if (peer == null) flowOf(emptyList())
+        else db.messageDao().getMessagesForPeer(peer.address)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Observe incoming messages and persist to Room database
+        // Automatically persist discovered peers into Room
         viewModelScope.launch {
-            bleManager.incomingMessages.collect { msg ->
-                repository.saveMessage(msg)
-                repository.saveDiscoveredPeer(msg.peerAddress, msg.senderPseudonym, -65, null)
+            discoveredPeers.collect { peersMap ->
+                peersMap.values.forEach { peer ->
+                    db.peerDao().insertOrUpdatePeer(
+                        PeerEntity(
+                            address = peer.address,
+                            pseudonym = peer.pseudonym,
+                            lastSeenTimestamp = peer.lastSeenTimestamp,
+                            lastRssi = peer.rssi,
+                            circleCode = peer.circleCode ?: "GENERAL"
+                        )
+                    )
+                }
             }
         }
 
-        // Observe ACKs
+        // Automatically persist incoming BLE messages
         viewModelScope.launch {
-            bleManager.messageAckEvents.collect { msgId ->
-                repository.updateMessageStatus(msgId, MessageDeliveryStatus.DELIVERED)
+            bleManager.incomingMessages.collect { msg ->
+                db.messageDao().insertMessage(
+                    MessageEntity(
+                        id = msg.id,
+                        peerAddress = msg.peerAddress,
+                        senderPseudonym = msg.senderPseudonym,
+                        text = msg.text,
+                        timestamp = msg.timestamp,
+                        isOutgoing = false,
+                        isDelivered = true
+                    )
+                )
             }
+        }
+
+        // Automatically update delivery ACKs
+        viewModelScope.launch {
+            bleManager.messageAckEvents.collect { messageId ->
+                db.messageDao().markDelivered(messageId)
+            }
+        }
+
+        // Seed default emergency and general circles
+        viewModelScope.launch {
+            db.safetyCircleDao().insertCircle(
+                SafetyCircleEntity(
+                    circleCode = "GENERAL",
+                    circleName = "General Broadcast Mesh",
+                    memberCount = 1
+                )
+            )
+            db.safetyCircleDao().insertCircle(
+                SafetyCircleEntity(
+                    circleCode = "RESCUE",
+                    circleName = "Emergency Rescue Response",
+                    memberCount = 1
+                )
+            )
         }
     }
 
-    fun toggleDiscovery() {
-        if (isScanning.value) {
-            bleManager.stopDiscovery()
-            bleManager.stopAdvertising()
-        } else {
+    fun startAutoPulse() {
+        bleManager.setupGattServer()
+        if (!isScanning.value) {
             bleManager.startDiscovery()
+            NearPulseForegroundService.start(getApplication())
+        }
+        if (!isAdvertising.value) {
             bleManager.startAdvertising()
         }
     }
 
-    fun selectPeerForChat(peer: DiscoveredPeer) {
-        _selectedPeerAddress.value = peer.address
-        if (activeConnectionPeer.value?.address != peer.address) {
-            bleManager.connectToPeer(peer.address)
+    fun toggleScanning() {
+        if (isScanning.value) {
+            bleManager.stopDiscovery()
+            NearPulseForegroundService.stop(getApplication())
+        } else {
+            bleManager.startDiscovery()
+            NearPulseForegroundService.start(getApplication())
         }
     }
 
-    fun disconnectPeer() {
-        bleManager.disconnectActiveGatt()
+    fun toggleAdvertising() {
+        if (isAdvertising.value) {
+            bleManager.stopAdvertising()
+        } else {
+            bleManager.startAdvertising()
+        }
     }
 
-    fun sendMessage(text: String) {
-        val address = _selectedPeerAddress.value ?: return
+    fun selectPeer(peer: DiscoveredPeer?) {
+        _selectedPeer.value = peer
+    }
+
+    fun selectPeerByAddress(address: String, pseudonym: String? = null) {
+        val found = discoveredPeers.value[address] ?: DiscoveredPeer(
+            address = address,
+            pseudonym = pseudonym ?: ("Peer-" + address.takeLast(4)),
+            rssi = -70,
+            signalCategory = SignalCategory.NEAR,
+            lastSeenTimestamp = System.currentTimeMillis()
+        )
+        _selectedPeer.value = found
+    }
+
+    fun testMessageNotification(delaySeconds: Long = 0) {
+        viewModelScope.launch {
+            if (delaySeconds > 0) {
+                kotlinx.coroutines.delay(delaySeconds * 1000)
+            }
+            val testMsg = BleMessage(
+                id = "TEST-" + System.currentTimeMillis().toString().takeLast(4),
+                peerAddress = "11:22:33:44:55:66",
+                senderPseudonym = "NP-ALPHA",
+                text = "Hey! Offline BLE direct mesh message received outside the app.",
+                timestamp = System.currentTimeMillis(),
+                isOutgoing = false,
+                isDelivered = true
+            )
+            // Persist peer and message so tapping notification immediately opens chat with this peer
+            db.peerDao().insertOrUpdatePeer(
+                PeerEntity(
+                    address = testMsg.peerAddress,
+                    pseudonym = testMsg.senderPseudonym,
+                    lastSeenTimestamp = testMsg.timestamp,
+                    lastRssi = -55,
+                    circleCode = "GENERAL"
+                )
+            )
+            db.messageDao().insertMessage(
+                MessageEntity(
+                    id = testMsg.id,
+                    peerAddress = testMsg.peerAddress,
+                    senderPseudonym = testMsg.senderPseudonym,
+                    text = testMsg.text,
+                    timestamp = testMsg.timestamp,
+                    isOutgoing = false,
+                    isDelivered = true
+                )
+            )
+            EmergencyAlertManager.postIncomingMessageNotification(
+                getApplication(),
+                testMsg
+            )
+        }
+    }
+
+    fun sendChatMessage(text: String) {
+        val peer = _selectedPeer.value ?: return
         if (text.isBlank()) return
 
-        val message = BleMessage(
-            id = UUID.randomUUID().toString(),
-            peerAddress = address,
-            senderPseudonym = bleManager.localPseudonym,
-            content = text.trim(),
-            timestamp = System.currentTimeMillis(),
-            isOutgoing = true,
-            status = MessageDeliveryStatus.SENDING
-        )
-
+        val msg = bleManager.sendMessage(peer.address, text.trim())
         viewModelScope.launch {
-            repository.saveMessage(message)
-            bleManager.sendMessage(address, message.content) { success, result ->
-                viewModelScope.launch {
-                    val newStatus = if (success) MessageDeliveryStatus.DELIVERED else MessageDeliveryStatus.FAILED
-                    repository.updateMessageStatus(message.id, newStatus)
-                }
-            }
+            db.messageDao().insertMessage(
+                MessageEntity(
+                    id = msg.id,
+                    peerAddress = msg.peerAddress,
+                    senderPseudonym = msg.senderPseudonym,
+                    text = msg.text,
+                    timestamp = msg.timestamp,
+                    isOutgoing = true,
+                    isDelivered = false
+                )
+            )
         }
     }
 
-    fun startSosBroadcast(details: String = "Emergency assistance needed") {
-        bleManager.startAdvertising(isSos = true, sosDetails = details)
-        viewModelScope.launch {
-            _statusNotice.emit("EMERGENCY SOS BEACON ACTIVE: Broadcasting to all nearby BLE devices.")
-        }
+    fun startSosBroadcast(emergencyType: String = "EMERGENCY DISTRESS") {
+        bleManager.startAdvertising(isSos = true, sosDetails = emergencyType)
     }
 
     fun stopSosBroadcast() {
         bleManager.stopAdvertising()
-        // Resume normal beacon if previously discovering
-        if (isScanning.value) {
-            bleManager.startAdvertising(isSos = false)
-        }
-        viewModelScope.launch {
-            _statusNotice.emit("SOS Beacon deactivated.")
-        }
     }
 
-    fun acknowledgeSos(alert: SosAlert) {
-        bleManager.acknowledgeSos(alert)
-    }
-
-    fun dismissSosAlert() {
+    fun dismissIncomingSos() {
         bleManager.dismissSosAlert()
     }
 
-    fun createSafetyCircle(name: String) {
-        val code = "NP-" + (1000..9999).random()
+    fun testEmergencyAlarm(delaySeconds: Long = 0) {
         viewModelScope.launch {
-            repository.createOrJoinCircle(code, name.ifBlank { "Squad Alpha" })
-            _statusNotice.emit("Safety Circle created with code: $code")
+            if (delaySeconds > 0) {
+                kotlinx.coroutines.delay(delaySeconds * 1000)
+            }
+            EmergencyAlertManager.triggerSosAlarm(
+                getApplication(),
+                SosAlert(
+                    id = "DRILL-" + System.currentTimeMillis().toString().takeLast(4),
+                    senderAddress = "AA:BB:CC:DD:EE:FF",
+                    senderPseudonym = "DRILL-TEST",
+                    message = "RESCUE DRILL: High-priority background siren & SOS vibration active",
+                    timestamp = System.currentTimeMillis(),
+                    rssi = -45
+                )
+            )
         }
     }
 
-    fun joinSafetyCircle(code: String) {
-        val cleanCode = code.trim().uppercase()
-        viewModelScope.launch {
-            repository.createOrJoinCircle(cleanCode, "Circle $cleanCode")
-            _statusNotice.emit("Joined Safety Circle: $cleanCode")
+    fun respondToSos(alert: SosAlert) {
+        bleManager.sendSosMutualAck(alert)
+        bleManager.dismissSosAlert()
+    }
+
+    fun updatePseudonym(newName: String) {
+        if (newName.isNotBlank()) {
+            bleManager.localPseudonym = newName.trim().uppercase()
+            _localPseudonym.value = bleManager.localPseudonym
+            if (isAdvertising.value) {
+                bleManager.startAdvertising(isSos = isSosBroadcasting.value)
+            }
         }
     }
 
-    fun leaveSafetyCircle() {
-        viewModelScope.launch {
-            repository.leaveCircle()
-            _statusNotice.emit("Left Safety Circle.")
+    fun setCircleCode(newCode: String) {
+        if (newCode.isNotBlank()) {
+            val upper = newCode.trim().uppercase()
+            bleManager.currentCircleCode = upper
+            _circleCode.value = upper
+            viewModelScope.launch {
+                db.safetyCircleDao().insertCircle(
+                    SafetyCircleEntity(
+                        circleCode = upper,
+                        circleName = "Circle $upper",
+                        memberCount = 1
+                    )
+                )
+            }
+            if (isAdvertising.value) {
+                bleManager.startAdvertising(isSos = isSosBroadcasting.value)
+            }
         }
     }
 
-    fun rotatePseudonym() {
-        val newName = "NP-" + UUID.randomUUID().toString().take(4).uppercase()
-        bleManager.localPseudonym = newName
-        if (isAdvertising.value) {
-            bleManager.startAdvertising(isSos = isSosBroadcasting.value)
-        }
+    fun clearAllData() {
         viewModelScope.launch {
-            _statusNotice.emit("Privacy pseudonym rotated to: $newName")
+            db.messageDao().deleteAllMessages()
+            db.peerDao().deleteAllPeers()
         }
     }
 
-    fun clearLocalData() {
-        viewModelScope.launch {
-            repository.clearAllData()
-            _statusNotice.emit("All local records and message cache cleared.")
-        }
-    }
-
-    class Factory(private val repository: NearPulseRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return NearPulseViewModel(repository) as T
-        }
-    }
+    fun isBleSupported(): Boolean = bleManager.isBleSupported()
+    fun isBluetoothEnabled(): Boolean = bleManager.isBluetoothEnabled()
+    fun isAdvertisingSupported(): Boolean = bleManager.isAdvertisingSupported()
 }

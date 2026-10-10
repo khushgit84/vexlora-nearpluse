@@ -1,27 +1,49 @@
 package com.vexlora.nearpulse.ui.theme
 
+import android.app.Activity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = ElectricCyan,
     onPrimary = CyberBgDark,
-    secondary = NeonViolet,
-    onSecondary = TextPrimary,
-    tertiary = SosRed,
+    primaryContainer = CyberCardElevated,
+    onPrimaryContainer = ElectricCyan,
+    secondary = EmeraldGreen,
+    onSecondary = CyberBgDark,
+    tertiary = NeonAmber,
+    onTertiary = CyberBgDark,
+    error = CrimsonRed,
+    onError = TextPrimary,
     background = CyberBgDark,
-    surface = CyberSurfaceDark,
-    surfaceVariant = CyberSurfaceElevated,
     onBackground = TextPrimary,
+    surface = CyberCard,
     onSurface = TextPrimary,
-    outline = CyberBorder
+    surfaceVariant = CyberCardElevated,
+    onSurfaceVariant = TextSecondary,
+    outline = CyberCardBorder
 )
 
 @Composable
-fun VexloraNearPulseTheme(
-    content: @Composable () -> Unit
-) {
+fun VexloraNearPulseTheme(content: @Composable () -> Unit) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = CyberBgDark.toArgb()
+                window.navigationBarColor = CyberBgDark.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+            }
+        }
+    }
+
     MaterialTheme(
         colorScheme = DarkColorScheme,
         typography = Typography,

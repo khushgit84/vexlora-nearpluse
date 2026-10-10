@@ -21,17 +21,12 @@ object BleConstants {
     // Standard Client Characteristic Configuration Descriptor
     val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
-    // Protocol constants
     const val PROTOCOL_VERSION: Byte = 0x01
     const val PACKET_TYPE_MSG: Byte = 0x10
     const val PACKET_TYPE_ACK: Byte = 0x20
     const val PACKET_TYPE_SOS: Byte = 0x30
     const val PACKET_TYPE_SOS_ACK: Byte = 0x31
 
-    // Maximum text payload size in bytes (single BLE packet without fragment overhead)
     const val MAX_MESSAGE_LENGTH = 280
     const val REQUESTED_MTU = 512
-
-    // NearPulse Manufacturer identifier for local advertising identification (0x09FF proprietary)
-    const val MANUFACTURER_ID = 0x09FF
 }
